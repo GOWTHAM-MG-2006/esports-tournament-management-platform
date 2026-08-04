@@ -11,10 +11,10 @@ class ApiResponseRenderer(JSONRenderer):
     }
     """
 
-    def render(self, accepted_media_type=None, renderer_context=None):
+    def render(self, data, accepted_media_type=None, renderer_context=None):
         response = renderer_context.get('response', None)
         if response is None:
-            return super().render(accepted_media_type, renderer_context)
+            return super().render(data, accepted_media_type, renderer_context)
 
         data = response.data
 
@@ -43,4 +43,4 @@ class ApiResponseRenderer(JSONRenderer):
         }
 
         renderer_context['response'].data = envelope
-        return super().render(accepted_media_type, renderer_context)
+        return super().render(envelope, accepted_media_type, renderer_context)

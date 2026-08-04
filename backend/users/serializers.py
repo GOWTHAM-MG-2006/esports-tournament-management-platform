@@ -13,6 +13,11 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['email', 'username', 'password', 'password_confirm']
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise ValidationError('A user with this email already exists.')
+        return value
+
     def validate(self, data):
         if data['password'] != data['password_confirm']:
             raise ValidationError({'password_confirm': 'Passwords do not match'})
