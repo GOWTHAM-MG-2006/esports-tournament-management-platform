@@ -25,3 +25,8 @@ graph TB
     Services --> DB
     Views --> Apps
 ```
+
+The backend follows a layered structure. A client (Swagger UI or any API client, including the React frontend)
+talks to the Django REST Framework **views**, which delegate business logic to **services** and rely on the shared
+**core** package for rendering and exception handling. Each Django **app** (users, teams, tournaments, matches)
+owns its models and persistence, and all data is stored in **PostgreSQL 15**.

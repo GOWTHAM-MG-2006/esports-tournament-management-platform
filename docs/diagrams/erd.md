@@ -71,3 +71,8 @@ erDiagram
     TEAM ||--o{ MATCH : team2
     USER ||--o{ MATCH : winner
 ```
+
+The database is composed of six entities. **users** are the base actor: they own teams, belong to teams as
+members, create tournaments, and can be recorded as a match winner. **teams** group members and register for
+tournaments. **tournaments** have a lifecycle and contain registrations as well as the matches generated for
+the bracket, where each match references two teams as team1/team2 and an optional winner.
