@@ -50,7 +50,7 @@ Open http://localhost:8000/api/docs/
 ## Frontend
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 20+ and npm
 
 ### Install and Run
 ```
