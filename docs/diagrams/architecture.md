@@ -2,7 +2,7 @@
 
 ```mermaid
 graph TB
-    Client[React SPA (frontend/) / Swagger UI]
+    Client["React SPA (frontend/) / Swagger UI"]
     
     subgraph Backend[Django REST Framework]
         Views[ViewSets]
