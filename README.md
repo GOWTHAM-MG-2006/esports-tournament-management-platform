@@ -5,6 +5,7 @@
 
 ## Tech Stack
 - Backend: Python 3.14, Django 5.1.15, Django REST Framework 3.15.2
+- Frontend: React 19, TypeScript, Vite, Bootstrap 5, React Router, Axios
 - Database: PostgreSQL 15
 - Auth: JWT (djangorestframework-simplejwt)
 - API Docs: drf-spectacular (Swagger UI)
@@ -45,6 +46,38 @@ python manage.py runserver
 
 ### 8. Access API docs
 Open http://localhost:8000/api/docs/
+
+## Frontend
+
+### Prerequisites
+- Node.js 18+ and npm
+
+### Install and Run
+```
+cd frontend
+npm install
+npm run dev
+```
+
+The dev server runs at http://localhost:5173. Vite proxies `/api` requests to `http://localhost:8000` (the Django backend), so relative `/api/*` URLs work in development. The backend must be running for the app to function.
+
+### Auth
+JWT authentication is handled through `/api/auth/register/` and `/api/auth/login/`. The access token is stored in `localStorage` and attached to requests via an Axios interceptor. On a 401 response, the interceptor automatically attempts a token refresh through `/api/auth/refresh/`.
+
+### Routes
+
+| Path | Page | Auth |
+|------|------|------|
+| `/` | Dashboard | Yes |
+| `/login` | Login | No |
+| `/register` | Register | No |
+| `/teams` | Teams | Yes |
+| `/tournaments` | Tournaments | Yes |
+| `/tournaments/:id` | Tournament Detail | Yes |
+| `/matches` | Matches | Yes |
+| `/brackets` | Brackets | Yes |
+
+Protected routes redirect to `/login` when unauthenticated.
 
 ## API Endpoints
 

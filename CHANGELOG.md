@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [Day 12] — 2026-08-09
+### Added
+- Frontend: React + Vite + Bootstrap SPA with auth (login/register), teams, tournaments, matches, and bracket views
+
 ## [Day 11] — 2026-08-08
 ### Added
 - README v1: project overview, tech stack, local setup guide, API endpoint table, test instructions
