@@ -36,14 +36,14 @@ class MatchViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'], url_path='submit-result')
     def submit_result(self, request, pk=None):
         match = self.get_object()
-        serializer = SubmitResultSerializer(data=request.data)
+        serializer = SubmitResultSerializer(instance=match, data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
             updated = BracketService.submit_result(
                 tournament=match.tournament,
                 match_id=match.id,
-                winner_id=serializer.validated_data['winner_id'],
+                winner_id=serializer.validated_data['winner'],
                 team1_score=serializer.validated_data.get('team1_score', ''),
                 team2_score=serializer.validated_data.get('team2_score', ''),
             )
