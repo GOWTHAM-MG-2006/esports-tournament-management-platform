@@ -175,7 +175,7 @@ class BracketService:
             next_match = Match.objects.get(
                 tournament=tournament, round=next_round, position=next_pos
             )
-            if next_match.position % 2 == 0:
+            if match.position % 2 == 0:
                 next_match.team1 = winner
             else:
                 next_match.team2 = winner
