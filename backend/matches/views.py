@@ -7,6 +7,7 @@ from matches.models import Match
 from matches.serializers import MatchSerializer, SubmitResultSerializer
 from matches.services import BracketService
 from tournaments.models import Tournament
+from users.permissions import IsOrganizer
 
 
 class MatchViewSet(viewsets.ReadOnlyModelViewSet):
@@ -14,7 +15,12 @@ class MatchViewSet(viewsets.ReadOnlyModelViewSet):
 
     serializer_class = MatchSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Match.objects.all()
+    queryset = Match.objects.all().order_by('id')
+
+    def get_permissions(self):
+        if self.action in ('generate_bracket', 'submit_result'):
+            return [IsOrganizer()]
+        return [IsAuthenticated()]
 
     @action(detail=False, methods=['post'], url_path='generate-bracket/(?P<tournament_id>[^/.]+)')
     def generate_bracket(self, request, tournament_id=None):
