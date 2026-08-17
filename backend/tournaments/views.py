@@ -4,12 +4,18 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from tournaments.models import Tournament, Registration
 from tournaments.serializers import TournamentSerializer, RegistrationSerializer
+from users.permissions import IsOrganizer
 
 
 class TournamentViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Tournament.objects.all()
+    queryset = Tournament.objects.all().order_by('id')
+
+    def get_permissions(self):
+        if self.action in ('open_registration', 'close_registration', 'seed'):
+            return [IsOrganizer()]
+        return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -49,6 +55,23 @@ class TournamentViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Tournament is full'}, status=status.HTTP_400_BAD_REQUEST)
         reg = Registration.objects.create(tournament=tournament, team=team, status='approved')
         return Response(RegistrationSerializer(reg).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='seed')
+    def seed(self, request, pk=None):
+        tournament = self.get_object()
+        if tournament.status != 'registration_open':
+            return Response({'message': 'Can only seed while registration is open'}, status=status.HTTP_400_BAD_REQUEST)
+        seeds = request.data.get('seeds', {})
+        updated = []
+        for reg_id, seed in seeds.items():
+            try:
+                reg = Registration.objects.get(id=int(reg_id), tournament=tournament)
+            except (Registration.DoesNotExist, ValueError, TypeError):
+                continue
+            reg.seed = seed
+            reg.save()
+            updated.append(reg)
+        return Response(RegistrationSerializer(updated, many=True).data)
 
     @action(detail=True, methods=['get'], url_path='matches')
     def matches(self, request, pk=None):

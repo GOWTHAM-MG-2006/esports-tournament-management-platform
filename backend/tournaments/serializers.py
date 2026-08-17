@@ -10,7 +10,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Registration
-        fields = ['id', 'tournament', 'team', 'team_name', 'status', 'registered_at']
+        fields = ['id', 'tournament', 'team', 'team_name', 'status', 'seed', 'registered_at']
         read_only_fields = ['id', 'status', 'registered_at']
 
 
