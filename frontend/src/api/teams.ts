@@ -24,9 +24,24 @@ export interface Team {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extract the inner `data` from the API envelope. */
-function unwrap<T>(res: { data: ApiEnvelope<T> }): T {
-  return res.data.data;
+/** Extract the inner `data` from the API envelope, tolerating bare data. */
+function unwrap<T>(res: { data: ApiEnvelope<T> | T }): T {
+  const raw = res.data as ApiEnvelope<T>;
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return raw.data;
+  }
+  return res.data as T;
+}
+
+/** Unwrap a list endpoint, tolerating DRF pagination ({results: [...]}) . */
+function unwrapList<T>(res: { data: unknown }): T[] {
+  const data = unwrap<T[] | { results: T[] }>(
+    res as { data: ApiEnvelope<T[] | { results: T[] }> },
+  );
+  if (data && typeof data === 'object' && 'results' in data) {
+    return (data as { results: T[] }).results;
+  }
+  return data as T[];
 }
 
 // ---------------------------------------------------------------------------
@@ -36,7 +51,7 @@ function unwrap<T>(res: { data: ApiEnvelope<T> }): T {
 /** List all teams owned by the current user. */
 export async function listTeams(): Promise<Team[]> {
   const res = await api.get<ApiEnvelope<Team[]>>('/teams/');
-  return unwrap(res);
+  return unwrapList<Team>(res);
 }
 
 /** Create a new team. Creator is auto-added as captain. */
@@ -45,6 +60,12 @@ export async function createTeam(
   tag: string,
 ): Promise<Team> {
   const res = await api.post<ApiEnvelope<Team>>('/teams/', { name, tag });
+  return unwrap(res);
+}
+
+/** Get a single team by id. */
+export async function getTeam(id: number): Promise<Team> {
+  const res = await api.get<ApiEnvelope<Team>>(`/teams/${id}/`);
   return unwrap(res);
 }
 
@@ -64,4 +85,12 @@ export async function addMember(
     { user_id: userId, role },
   );
   return unwrap(res);
+}
+
+/** Remove a member from a team. */
+export async function removeMember(
+  teamId: number,
+  userId: number,
+): Promise<void> {
+  await api.post(`/teams/${teamId}/remove-member/`, { user_id: userId });
 }

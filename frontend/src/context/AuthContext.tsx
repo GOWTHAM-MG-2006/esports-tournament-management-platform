@@ -1,13 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import api from '../api/client';
-import type { User, ApiEnvelope, AuthTokens } from '../api/types';
-
-/** Shape of the /auth/login/ and /auth/register/ response data. */
-interface AuthResponse {
-  user: User;
-  tokens: AuthTokens;
-}
+import { fetchMe, loginRequest, logoutRequest, registerRequest } from '../api/auth';
+import type { User } from '../api/types';
 
 interface AuthContextValue {
   user: User | null;
@@ -31,8 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Fetch the current user from /auth/me/ using the stored token. */
   const fetchUser = useCallback(async () => {
     try {
-      const res = await api.get<ApiEnvelope<User>>('/auth/me/');
-      setUser(res.data.data);
+      setUser(await fetchMe());
     } catch {
       // Token invalid or expired — clear state silently.
       localStorage.removeItem('access_token');
@@ -52,11 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUser]);
 
   const login = async (email: string, password: string) => {
-    const res = await api.post<ApiEnvelope<AuthResponse>>(
-      '/auth/login/',
-      { email, password },
-    );
-    const { user: userData, tokens } = res.data.data;
+    const { user: userData, tokens } = await loginRequest(email, password);
     localStorage.setItem('access_token', tokens.access);
     localStorage.setItem('refresh_token', tokens.refresh);
     setUser(userData);
@@ -68,17 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     passwordConfirm: string,
   ) => {
-    await api.post<ApiEnvelope<AuthResponse>>('/auth/register/', {
-      email,
-      username,
-      password,
-      password_confirm: passwordConfirm,
-    });
+    await registerRequest(email, username, password, passwordConfirm);
     // Auto-login after successful registration.
     await login(email, password);
   };
 
   const logout = () => {
+    // Best-effort server-side blacklist; always clear local state.
+    void logoutRequest().finally(() => {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      setUser(null);
+    });
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     setUser(null);

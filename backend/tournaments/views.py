@@ -73,6 +73,12 @@ class TournamentViewSet(viewsets.ModelViewSet):
             updated.append(reg)
         return Response(RegistrationSerializer(updated, many=True).data)
 
+    @action(detail=True, methods=['get'], url_path='registrations')
+    def registrations(self, request, pk=None):
+        tournament = self.get_object()
+        regs = tournament.registrations.all().order_by('id')
+        return Response(RegistrationSerializer(regs, many=True).data)
+
     @action(detail=True, methods=['get'], url_path='matches')
     def matches(self, request, pk=None):
         tournament = self.get_object()
