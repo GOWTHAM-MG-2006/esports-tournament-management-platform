@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+/** API base URL — same-origin `/api` in dev (Vite proxy), absolute URL in prod. */
+export const API_BASE: string =
+  (import.meta.env.VITE_API_URL as string | undefined) || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
 });
 
 // ---------------------------------------------------------------------------
@@ -48,7 +52,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post('/api/auth/refresh/', {
+        const { data } = await axios.post(`${API_BASE}/auth/refresh/`, {
           refresh: refreshToken,
         });
 

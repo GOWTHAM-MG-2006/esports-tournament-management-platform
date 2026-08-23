@@ -39,6 +39,7 @@ class Registration(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='registrations')
     team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, related_name='registrations')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    seed = models.PositiveIntegerField(null=True, blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

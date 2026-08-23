@@ -27,7 +27,7 @@ class TestTeamViewSet:
         Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert len(response.data['data']) == 1
+        assert len(response.data['data']['results']) == 1
 
     def test_add_member(self):
         team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
