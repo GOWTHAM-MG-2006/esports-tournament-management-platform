@@ -8,7 +8,6 @@ const NAV_LINKS = [
   { to: '/matches', label: 'Matches' },
   { to: '/brackets', label: 'Brackets' },
   { to: '/standings', label: 'Standings' },
-  { to: '/health', label: 'Health' },
 ];
 
 export default function Navbar() {

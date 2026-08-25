@@ -13,7 +13,6 @@ import MatchesPage from './pages/MatchesPage';
 import BracketsPage from './pages/BracketsPage';
 import SeedingPage from './pages/SeedingPage';
 import StandingsPage from './pages/StandingsPage';
-import HealthPage from './pages/HealthPage';
 import AdminPage from './pages/AdminPage';
 
 export default function App() {
@@ -35,7 +34,6 @@ export default function App() {
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/brackets" element={<BracketsPage />} />
           <Route path="/standings" element={<StandingsPage />} />
-          <Route path="/health" element={<HealthPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
 
