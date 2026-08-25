@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   listTeams,
   createTeam,
@@ -307,12 +308,20 @@ export default function TeamsPage() {
                 <strong className="me-2">{team.name}</strong>
                 <span className="badge bg-secondary">{team.tag}</span>
               </div>
-              <button
-                className="btn btn-sm btn-outline-danger"
-                onClick={() => void handleDelete(team)}
-              >
-                Delete
-              </button>
+              <div className="d-flex gap-1">
+                <Link
+                  className="btn btn-sm btn-outline-primary"
+                  to={`/teams/${team.id}`}
+                >
+                  View
+                </Link>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => void handleDelete(team)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             <div className="card-body">

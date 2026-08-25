@@ -37,14 +37,25 @@ function unwrap<T>(res: { data: ApiEnvelope<T> | T }): T {
   return res.data as T;
 }
 
+/** Unwrap a list endpoint, tolerating DRF pagination ({results: [...]}) . */
+function unwrapList<T>(res: { data: unknown }): T[] {
+  const data = unwrap<T[] | { results: T[] }>(
+    res as { data: ApiEnvelope<T[] | { results: T[] }> },
+  );
+  if (data && typeof data === 'object' && 'results' in data) {
+    return (data as { results: T[] }).results;
+  }
+  return data as T[];
+}
+
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
 
-/** List all matches (no pagination). */
+/** List all matches (handles pagination). */
 export async function listMatches(): Promise<Match[]> {
   const res = await api.get<ApiEnvelope<Match[]> | Match[]>('/matches/');
-  return unwrap<Match[]>(res);
+  return unwrapList<Match>(res);
 }
 
 /** Get a single match by id. */

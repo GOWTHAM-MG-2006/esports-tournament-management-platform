@@ -44,6 +44,7 @@ export interface Registration {
   tournament: number;
   team: number;
   team_name: string;
+  seed: number | null;
   status: string;
   registered_at: string;
 }
@@ -71,18 +72,33 @@ export interface Match {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function unwrap<T>(res: { data: ApiEnvelope<T> }): T {
-  return res.data.data;
+function unwrap<T>(res: { data: ApiEnvelope<T> | T }): T {
+  const raw = res.data as ApiEnvelope<T>;
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return raw.data;
+  }
+  return res.data as T;
+}
+
+/** Unwrap a list endpoint, tolerating DRF pagination ({results: [...]}) . */
+function unwrapList<T>(res: { data: unknown }): T[] {
+  const data = unwrap<T[] | { results: T[] }>(
+    res as { data: ApiEnvelope<T[] | { results: T[] }> },
+  );
+  if (data && typeof data === 'object' && 'results' in data) {
+    return (data as { results: T[] }).results;
+  }
+  return data as T[];
 }
 
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
 
-/** List all tournaments (no pagination). */
+/** List all tournaments (handles pagination). */
 export async function listTournaments(): Promise<Tournament[]> {
   const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/');
-  return unwrap(res);
+  return unwrapList(res);
 }
 
 /** Create a new tournament. */
@@ -130,7 +146,27 @@ export async function registerTeam(
 /** Get all matches for a tournament. */
 export async function getTournamentMatches(id: number): Promise<Match[]> {
   const res = await api.get<ApiEnvelope<Match[]>>(`/tournaments/${id}/matches/`);
-  return unwrap(res);
+  return unwrapList(res);
+}
+
+/** Get all registrations for a tournament (for the seeding UI). */
+export async function getRegistrations(id: number): Promise<Registration[]> {
+  const res = await api.get<ApiEnvelope<Registration[]>>(
+    `/tournaments/${id}/registrations/`,
+  );
+  return unwrapList(res);
+}
+
+/** Bulk-set seeds: POST /tournaments/{id}/seed/ {seeds: {regId: seed}}. */
+export async function setSeeds(
+  id: number,
+  seeds: Record<number, number | null>,
+): Promise<Registration[]> {
+  const res = await api.post<ApiEnvelope<Registration[]>>(
+    `/tournaments/${id}/seed/`,
+    { seeds },
+  );
+  return unwrapList(res);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +182,7 @@ export interface TeamOption {
 /** Fetch the current user's teams (inline, no api/teams.ts dependency). */
 export async function listMyTeams(): Promise<TeamOption[]> {
   const res = await api.get<ApiEnvelope<TeamOption[]>>('/teams/');
-  return unwrap(res);
+  return unwrapList(res);
 }
 
 // ---------------------------------------------------------------------------
