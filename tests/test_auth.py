@@ -47,3 +47,32 @@ class TestAuthEndpoints:
     def test_me_unauthenticated(self):
         response = self.client.get(self.me_url)
         assert response.status_code == 401
+
+    def test_refresh_success(self):
+        data = {'email': 'ref@test.com', 'username': 'refuser', 'password': 'securepass1', 'password_confirm': 'securepass1'}
+        reg = self.client.post(self.register_url, data)
+        refresh = reg.data['data']['tokens']['refresh']
+        response = self.client.post(self.refresh_url, {'refresh': refresh})
+        assert response.status_code == 200
+        assert 'access' in response.data['data']
+
+    def test_refresh_invalid(self):
+        response = self.client.post(self.refresh_url, {'refresh': 'invalid-token'})
+        assert response.status_code == 401
+
+    def test_logout_blacklists_refresh(self):
+        user = User.objects.create_user(email='out@test.com', username='outuser', password='mypassword')
+        login = self.client.post(self.login_url, {'email': 'out@test.com', 'password': 'mypassword'})
+        refresh = login.data['data']['tokens']['refresh']
+        self.client.force_authenticate(user=user)
+        response = self.client.post('/api/auth/logout/', {'refresh': refresh})
+        assert response.status_code == 200
+        self.client.force_authenticate(user=None)
+        reuse = self.client.post(self.refresh_url, {'refresh': refresh})
+        assert reuse.status_code == 401
+
+    def test_logout_requires_refresh(self):
+        user = User.objects.create_user(email='out2@test.com', username='outuser2', password='mypassword')
+        self.client.force_authenticate(user=user)
+        response = self.client.post('/api/auth/logout/', {})
+        assert response.status_code == 400
