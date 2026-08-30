@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { to: '/tournaments', label: 'Tournaments' },
   { to: '/matches', label: 'Matches' },
   { to: '/brackets', label: 'Brackets' },
+  { to: '/standings', label: 'Standings' },
 ];
 
 export default function Navbar() {
@@ -49,6 +50,16 @@ export default function Navbar() {
           <ul className="navbar-nav ms-auto">
             {user ? (
               <>
+                {(user.role === 'admin' || user.role === 'organizer') && (
+                  <li className="nav-item">
+                    <Link
+                      className={`nav-link${location.pathname === '/admin' ? ' active' : ''}`}
+                      to="/admin"
+                    >
+                      Admin
+                    </Link>
+                  </li>
+                )}
                 <li className="nav-item">
                   <span className="nav-link text-light">{user.email}</span>
                 </li>

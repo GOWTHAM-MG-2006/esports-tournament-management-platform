@@ -43,3 +43,41 @@ class TestTeamViewSet:
         self.client.force_authenticate(user=None)
         response = self.client.post(self.url, {'name': 'Fnatic', 'tag': 'FNC'})
         assert response.status_code == 401
+
+    def test_add_member_duplicate(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        new_user = User.objects.create_user(
+            email='m2@m.com', username='member2', password='pass1234'
+        )
+        self.client.post(f'{self.url}{team.id}/add-member/', {'user_id': new_user.id})
+        response = self.client.post(
+            f'{self.url}{team.id}/add-member/', {'user_id': new_user.id}
+        )
+        assert response.status_code == 400
+
+    def test_add_member_user_not_found(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        response = self.client.post(
+            f'{self.url}{team.id}/add-member/', {'user_id': 9999}
+        )
+        assert response.status_code == 404
+
+    def test_remove_member(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        new_user = User.objects.create_user(
+            email='m3@m.com', username='member3', password='pass1234'
+        )
+        self.client.post(f'{self.url}{team.id}/add-member/', {'user_id': new_user.id})
+        response = self.client.post(
+            f'{self.url}{team.id}/remove-member/', {'user_id': new_user.id}
+        )
+        assert response.status_code == 200
+        assert not TeamMember.objects.filter(team=team, user=new_user).exists()
+
+    def test_remove_owner_forbidden(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        TeamMember.objects.create(team=team, user=self.user, role='captain')
+        response = self.client.post(
+            f'{self.url}{team.id}/remove-member/', {'user_id': self.user.id}
+        )
+        assert response.status_code == 400
