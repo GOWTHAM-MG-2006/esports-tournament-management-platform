@@ -72,10 +72,15 @@ JWT authentication is handled through `/api/auth/register/` and `/api/auth/login
 | `/login` | Login | No |
 | `/register` | Register | No |
 | `/teams` | Teams | Yes |
+| `/teams/:id` | Team Detail | Yes |
 | `/tournaments` | Tournaments | Yes |
 | `/tournaments/:id` | Tournament Detail | Yes |
+| `/tournaments/:id/seeding` | Seeding | Yes |
 | `/matches` | Matches | Yes |
 | `/brackets` | Brackets | Yes |
+| `/standings` | Standings | Yes |
+| `/health` | Backend health | Yes |
+| `/admin` | Admin (organizer/admin only) | Yes |
 
 Protected routes redirect to `/login` when unauthenticated.
 
@@ -86,24 +91,68 @@ Protected routes redirect to `/login` when unauthenticated.
 | POST | /api/auth/register/ | Register new user | No |
 | POST | /api/auth/login/ | Login, get JWT tokens | No |
 | POST | /api/auth/refresh/ | Refresh access token | No |
+| POST | /api/auth/logout/ | Blacklist refresh token | Yes |
 | GET | /api/auth/me/ | Get current user | Yes |
+| GET | /api/health/ | Backend + DB health check | No |
 | GET/POST | /api/teams/ | List/create teams | Yes |
 | GET/PUT/DELETE | /api/teams/{id}/ | Team detail | Yes |
 | POST | /api/teams/{id}/add-member/ | Add team member | Yes |
+| POST | /api/teams/{id}/remove-member/ | Remove team member | Yes |
 | GET/POST | /api/tournaments/ | List/create tournaments | Yes |
 | GET/PUT/DELETE | /api/tournaments/{id}/ | Tournament detail | Yes |
-| POST | /api/tournaments/{id}/open-registration/ | Open registration | Yes |
-| POST | /api/tournaments/{id}/close-registration/ | Close registration | Yes |
+| POST | /api/tournaments/{id}/open-registration/ | Open registration (organizer) | Yes |
+| POST | /api/tournaments/{id}/close-registration/ | Close registration (organizer) | Yes |
 | POST | /api/tournaments/{id}/register-team/ | Register team for tournament | Yes |
+| POST | /api/tournaments/{id}/seed/ | Set team seeds (organizer) | Yes |
+| GET | /api/tournaments/{id}/registrations/ | List tournament registrations | Yes |
 | GET | /api/tournaments/{id}/matches/ | Get tournament matches | Yes |
 | GET | /api/tournaments/{id}/bracket/ | Get bracket view | Yes |
-| POST | /api/matches/generate-bracket/{tournament_id}/ | Generate bracket | Yes |
-| POST | /api/matches/{id}/submit-result/ | Submit match result | Yes |
+| GET | /api/matches/ | List matches | Yes |
+| GET | /api/matches/{id}/ | Match detail | Yes |
+| POST | /api/matches/generate-bracket/{tournament_id}/ | Generate bracket (organizer) | Yes |
+| POST | /api/matches/{id}/submit-result/ | Submit match result (organizer) | Yes |
 | GET | /api/docs/ | Swagger UI | No |
 
 ## Running Tests
+
+Backend (51 tests, pytest + pytest-django):
+```
 pip install -r requirements-dev.txt
 pytest
+```
+
+Frontend (vitest + Testing Library):
+```
+cd frontend
+npm ci
+npm test -- --run
+```
+
+## Deployment
+
+Manual cloud steps (cannot be automated from here):
+
+1. **Database (Railway):** create a PostgreSQL service, copy the `DATABASE_URL`.
+2. **Backend (Render):** new Web Service from this repo —
+   build: `pip install -r requirements.txt`,
+   start: `gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
+   (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
+   `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`.
+3. **Frontend (Vercel):** import `frontend/`, set
+   `VITE_API_URL=https://<render-host>/api` (see `frontend/.env.production`).
+4. **CI deploy hooks:** add `RENDER_DEPLOY_HOOK` (vars) and `VERCEL_TOKEN`
+   (secrets) to GitHub so pushes to `main` redeploy.
+
+Verify: `https://<render-host>/api/health/` → `{"status": "ok", ...}`,
+`https://<render-host>/api/docs/` for Swagger.
+
+## Notes
+
+- UI uses Bootstrap 5 (not Tailwind): the spec's `tailwind.config.js` was
+  intentionally skipped — Bootstrap was already wired through the SPA and a
+  rewrite added no product value.
+- Frontend TypeScript (`.ts`/`.tsx`) is used instead of the spec's `.js`/`.jsx`
+  file names; API and component structure match the spec one-to-one.
 
 ## License
 MIT
