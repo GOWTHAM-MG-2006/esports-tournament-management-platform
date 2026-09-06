@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## [Day 41] — 2026-09-06
+### Added
+- Review-II preparation: deploy configs (`Procfile`, gunicorn, `STATIC_ROOT`,
+  `CORS_EXTRA_ORIGINS`, `frontend/.env.production`), README v2 (full routes/endpoints,
+  tests, deployment, Bootstrap deviation note), CHANGELOG Days 13–41
+
+## [Day 29] — 2026-08-29
+### Added
+- CI: `frontend` job (Node 20, `npm ci`, oxlint, vitest, build) + `deploy` job
+  (Render deploy hook, Vercel) on pushes to `main`; backend job renamed `backend`
+
+## [Day 25] — 2026-08-25
+### Added
+- Backend tests: refresh/logout, duplicate/capacity/seed/RBAC, health (51 passed, was 32)
+- Frontend tests: vitest + Testing Library (6 passed), `vitest.config.ts`, `test` script
+
+## [Day 20] — 2026-08-20
+### Added
+- Frontend pages: TeamDetail (`/teams/:id`), Seeding, Standings, Health, Admin;
+  components `BracketView`, `ErrorBoundary`, `LoadingSpinner`; `src/api/auth.ts`;
+  `VITE_API_URL` support + `frontend/.env.example`
+- Backend: `GET /api/tournaments/{id}/registrations/` for the seeding UI
+
+## [Day 15] — 2026-08-15
+### Added
+- RBAC: `IsOrganizer` guard on open/close-registration, seed, generate-bracket, submit-result
+- `Registration.seed` field + migration + `POST /api/tournaments/{id}/seed/`
+- `remove-member` endpoint, `add-member` 404 handling
+- DRF pagination (page size 20), email backend stubs (console dev / SMTP prod)
+
+## [Day 13] — 2026-08-11
+### Fixed
+- `submit-result`: serializer now receives the match instance, reads `winner` (was `winner_id` KeyError)
+- Winner propagation parity: uses `match.position % 2` (was `next_match.position`)
+### Added
+- `GET /api/health/` health check, `POST /api/auth/logout/` token blacklist
+
 ## [Day 12] — 2026-08-09
 ### Added
 - Frontend: React + Vite + Bootstrap SPA with auth (login/register), teams, tournaments, matches, and bracket views

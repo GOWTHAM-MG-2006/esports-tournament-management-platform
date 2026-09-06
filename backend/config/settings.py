@@ -64,6 +64,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEMPLATES = [
@@ -140,5 +141,9 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',  # Vite dev server (Phase 2)
     'http://localhost:3000',  # CRA dev server (Phase 2)
+]
+# Extra prod origins, comma-separated (e.g. the Vercel frontend URL)
+CORS_ALLOWED_ORIGINS += [
+    o.strip() for o in config('CORS_EXTRA_ORIGINS', default='').split(',') if o.strip()
 ]
 CORS_ALLOW_ALL_ORIGINS = DEBUG
