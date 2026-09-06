@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
+import { listTournaments } from '../api/tournaments';
 import { generateBracket } from '../api/matches';
 import BracketView from '../components/BracketView';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -72,9 +73,9 @@ export default function BracketsPage() {
     (async () => {
       try {
         setLoadingTournaments(true);
-        const res = await api.get<ApiEnvelope<Tournament[]> | Tournament[]>('/tournaments/');
+        const data = await listTournaments();
         if (!cancelled) {
-          setTournaments(unwrap<Tournament[]>(res.data));
+          setTournaments(data);
         }
       } catch (err: unknown) {
         if (!cancelled) setError(handleAxiosError(err));
@@ -117,8 +118,7 @@ export default function BracketsPage() {
       alert('Bracket generated successfully!');
       await fetchBracket(selectedId);
       // Re-fetch tournaments to pick up status change
-      const res = await api.get<ApiEnvelope<Tournament[]> | Tournament[]>('/tournaments/');
-      setTournaments(unwrap<Tournament[]>(res.data));
+      setTournaments(await listTournaments());
     } catch (err: unknown) {
       alert(handleAxiosError(err));
     } finally {
