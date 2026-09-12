@@ -24,8 +24,12 @@ class TeamViewSet(viewsets.ModelViewSet):
         team = self.get_object()
         serializer = AddMemberSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         try:
-            user = User.objects.get(pk=serializer.validated_data['user_id'])
+            if data.get('email'):
+                user = User.objects.get(email__iexact=data['email'])
+            else:
+                user = User.objects.get(pk=data['user_id'])
         except User.DoesNotExist:
             return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         if TeamMember.objects.filter(team=team, user=user).exists():

@@ -15,11 +15,17 @@ class TeamMemberSerializer(serializers.ModelSerializer):
 
 
 class AddMemberSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+    user_id = serializers.IntegerField(required=False)
+    email = serializers.EmailField(required=False)
     role = serializers.ChoiceField(
         choices=TeamMember.Role.choices,
         default=TeamMember.Role.MEMBER,
     )
+
+    def validate(self, attrs):
+        if not attrs.get('user_id') and not attrs.get('email'):
+            raise serializers.ValidationError('Provide user_id or email.')
+        return attrs
 
 
 class TeamSerializer(serializers.ModelSerializer):

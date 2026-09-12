@@ -62,6 +62,31 @@ class TestTeamViewSet:
         )
         assert response.status_code == 404
 
+    def test_add_member_by_email(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        new_user = User.objects.create_user(
+            email='byemail@m.com', username='byemail', password='pass1234'
+        )
+        response = self.client.post(
+            f'{self.url}{team.id}/add-member/', {'email': 'byemail@m.com'}
+        )
+        assert response.status_code == 201
+        assert TeamMember.objects.filter(team=team, user=new_user).exists()
+
+    def test_add_member_by_email_not_found(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        response = self.client.post(
+            f'{self.url}{team.id}/add-member/', {'email': 'nobody@m.com'}
+        )
+        assert response.status_code == 404
+
+    def test_add_member_missing_identifier(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        response = self.client.post(
+            f'{self.url}{team.id}/add-member/', {'role': 'member'}
+        )
+        assert response.status_code == 400
+
     def test_remove_member(self):
         team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
         new_user = User.objects.create_user(
