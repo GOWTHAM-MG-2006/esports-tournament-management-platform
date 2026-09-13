@@ -74,15 +74,15 @@ export async function deleteTeam(id: number): Promise<void> {
   await api.delete<ApiEnvelope<null>>(`/teams/${id}/`);
 }
 
-/** Add a member to a team. Returns the new TeamMember. */
+/** Add a member to a team by the player's email address. Returns the new TeamMember. */
 export async function addMember(
   teamId: number,
-  userId: number,
+  email: string,
   role: 'captain' | 'member' = 'member',
 ): Promise<TeamMember> {
   const res = await api.post<ApiEnvelope<TeamMember>>(
     `/teams/${teamId}/add-member/`,
-    { user_id: userId, role },
+    { email, role },
   );
   return unwrap(res);
 }

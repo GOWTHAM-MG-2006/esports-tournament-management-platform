@@ -23,7 +23,7 @@ export default function TeamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
-  const [memberUserId, setMemberUserId] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<'captain' | 'member'>('member');
   const [busy, setBusy] = useState(false);
 
@@ -45,16 +45,16 @@ export default function TeamDetailPage() {
 
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
-    const uid = parseInt(memberUserId, 10);
-    if (isNaN(uid) || uid <= 0) {
-      setAlert({ type: 'danger', text: 'Please enter a valid positive user ID.' });
+    const email = memberEmail.trim();
+    if (!email || !email.includes('@')) {
+      setAlert({ type: 'danger', text: 'Please enter the player\u2019s email address.' });
       return;
     }
     setBusy(true);
     try {
-      await addMember(teamId, uid, memberRole);
+      await addMember(teamId, email, memberRole);
       setAlert({ type: 'success', text: 'Member added.' });
-      setMemberUserId('');
+      setMemberEmail('');
       await fetchTeam();
     } catch (err: unknown) {
       setAlert({ type: 'danger', text: handleAxiosError(err) });
@@ -175,18 +175,17 @@ export default function TeamDetailPage() {
           <form onSubmit={(e) => void handleAddMember(e)} noValidate>
             <div className="row g-2 align-items-end">
               <div className="col-auto">
-                <label className="form-label small" htmlFor="detail-member-uid">
-                  User ID
+                <label className="form-label small" htmlFor="detail-member-email">
+                  Player Email
                 </label>
                 <input
-                  id="detail-member-uid"
-                  type="number"
+                  id="detail-member-email"
+                  type="email"
                   className="form-control form-control-sm"
-                  value={memberUserId}
-                  onChange={(e) => setMemberUserId(e.target.value)}
-                  placeholder="1"
-                  min={1}
-                  style={{ width: 100 }}
+                  value={memberEmail}
+                  onChange={(e) => setMemberEmail(e.target.value)}
+                  placeholder="player@example.com"
+                  style={{ width: 220 }}
                 />
               </div>
               <div className="col-auto">
