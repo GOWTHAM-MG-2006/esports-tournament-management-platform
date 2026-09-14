@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from tournaments.models import Tournament, Registration
 from tournaments.serializers import TournamentSerializer, RegistrationSerializer
 from users.permissions import IsOrganizer
@@ -13,18 +14,51 @@ class TournamentViewSet(viewsets.ModelViewSet):
     queryset = Tournament.objects.all().order_by('id')
 
     def get_permissions(self):
-        if self.action in ('open_registration', 'close_registration', 'seed'):
+        if self.action in ('open_registration', 'close_registration',
+                            'start_tournament', 'seed', 'update',
+                            'partial_update', 'destroy'):
             return [IsOrganizer()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        if 'status' in request.data:
+            return Response(
+                {'message': 'Status cannot be edited directly. Use the lifecycle actions (open/close/start).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if self.get_object().status in ('in_progress', 'completed'):
+            return Response(
+                {'message': 'Tournament details cannot be edited once started.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if 'status' in request.data:
+            return Response(
+                {'message': 'Status cannot be edited directly. Use the lifecycle actions (open/close/start).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if self.get_object().status in ('in_progress', 'completed'):
+            return Response(
+                {'message': 'Tournament details cannot be edited once started.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        if instance.status == 'in_progress':
+            raise ValidationError('Cannot delete a tournament in progress')
+        instance.delete()
+
     @action(detail=True, methods=['post'], url_path='open-registration')
     def open_registration(self, request, pk=None):
         tournament = self.get_object()
-        if tournament.status != 'draft':
-            return Response({'message': 'Can only open registration from draft status'}, status=status.HTTP_400_BAD_REQUEST)
+        if tournament.status not in ('draft', 'registration_closed'):
+            return Response({'message': 'Registration can only be opened from draft or closed status'}, status=status.HTTP_400_BAD_REQUEST)
         tournament.status = 'registration_open'
         tournament.save()
         return Response(TournamentSerializer(tournament).data)
@@ -32,8 +66,17 @@ class TournamentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='close-registration')
     def close_registration(self, request, pk=None):
         tournament = self.get_object()
-        if tournament.status != 'registration_open':
-            return Response({'message': 'Registration is not open'}, status=status.HTTP_400_BAD_REQUEST)
+        if tournament.status not in ('draft', 'registration_open'):
+            return Response({'message': 'Registration can only be closed from draft or open status'}, status=status.HTTP_400_BAD_REQUEST)
+        tournament.status = 'registration_closed'
+        tournament.save()
+        return Response(TournamentSerializer(tournament).data)
+
+    @action(detail=True, methods=['post'], url_path='start-tournament')
+    def start_tournament(self, request, pk=None):
+        tournament = self.get_object()
+        if tournament.status != 'registration_closed':
+            return Response({'message': 'Can only start a tournament whose registration is closed'}, status=status.HTTP_400_BAD_REQUEST)
         tournament.status = 'in_progress'
         tournament.save()
         return Response(TournamentSerializer(tournament).data)
@@ -59,8 +102,8 @@ class TournamentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='seed')
     def seed(self, request, pk=None):
         tournament = self.get_object()
-        if tournament.status != 'registration_open':
-            return Response({'message': 'Can only seed while registration is open'}, status=status.HTTP_400_BAD_REQUEST)
+        if tournament.status not in ('registration_open', 'registration_closed'):
+            return Response({'message': 'Can only seed while registration is open or closed'}, status=status.HTTP_400_BAD_REQUEST)
         seeds = request.data.get('seeds', {})
         updated = []
         for reg_id, seed in seeds.items():
