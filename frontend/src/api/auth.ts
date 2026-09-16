@@ -5,10 +5,16 @@ import type { ApiEnvelope, AuthTokens, User } from './types';
 // Types
 // ---------------------------------------------------------------------------
 
-/** Shape of the /auth/login/ and /auth/register/ response data. */
+/** Shape of the /auth/login/ and /auth/verify-otp/ response data. */
 export interface AuthResponse {
   user: User;
   tokens: AuthTokens;
+}
+
+/** Shape of the /auth/register/ and /auth/resend-otp/ response data. */
+export interface RegisterResponse {
+  message: string;
+  email: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -40,19 +46,52 @@ export async function loginRequest(
   return unwrap(res);
 }
 
-/** POST /auth/register/ — creates the user (caller logs in after). */
+/**
+ * POST /auth/register/ — creates an inactive user and emails a 6-digit OTP.
+ * Returns a message + the email; caller must route to /verify (no tokens yet).
+ */
 export async function registerRequest(
   email: string,
   username: string,
   password: string,
   passwordConfirm: string,
-): Promise<void> {
-  await api.post('/auth/register/', {
+): Promise<RegisterResponse> {
+  const res = await api.post<ApiEnvelope<RegisterResponse>>('/auth/register/', {
     email,
     username,
     password,
     password_confirm: passwordConfirm,
   });
+  return unwrap(res);
+}
+
+/** POST /auth/verify-otp/ — confirms the code, activates the account, returns user + tokens. */
+export async function verifyOtpRequest(
+  email: string,
+  code: string,
+): Promise<AuthResponse> {
+  const res = await api.post<ApiEnvelope<AuthResponse>>('/auth/verify-otp/', {
+    email,
+    code,
+  });
+  return unwrap(res);
+}
+
+/**
+ * POST /auth/resend-otp/ — invalidates the current code and emails a fresh one.
+ * NOTE: the success text lives on the envelope's top-level `message`
+ * (unwrap() would drop it), so it is extracted explicitly here.
+ */
+export async function resendOtpRequest(
+  email: string,
+): Promise<RegisterResponse> {
+  const res = await api.post('/auth/resend-otp/', { email });
+  const raw = res.data as Partial<ApiEnvelope<{ email?: string }>>;
+  const message =
+    typeof raw?.message === 'string' && raw.message
+      ? raw.message
+      : 'A new code has been sent to your email.';
+  return { message, email: raw?.data?.email ?? email };
 }
 
 /** GET /auth/me/ — current user for the stored token. */

@@ -28,3 +28,20 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class EmailOTP(models.Model):
+    """One-time email verification code (SHA-256 hashed at rest)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_otps')
+    code_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'email_otps'
+
+    def __str__(self):
+        return f'OTP for {self.user.email}'

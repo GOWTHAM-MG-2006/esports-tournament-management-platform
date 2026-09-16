@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { fetchMe, loginRequest, logoutRequest, registerRequest } from '../api/auth';
+import { fetchMe, loginRequest, logoutRequest, registerRequest, verifyOtpRequest } from '../api/auth';
 import type { User } from '../api/types';
+
+const PENDING_EMAIL_KEY = 'pending_verification_email';
 
 interface AuthContextValue {
   user: User | null;
@@ -12,7 +14,8 @@ interface AuthContextValue {
     username: string,
     password: string,
     passwordConfirm: string,
-  ) => Promise<void>;
+  ) => Promise<string>;
+  verifyOtp: (email: string, code: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -56,10 +59,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     username: string,
     password: string,
     passwordConfirm: string,
-  ) => {
-    await registerRequest(email, username, password, passwordConfirm);
-    // Auto-login after successful registration.
-    await login(email, password);
+  ): Promise<string> => {
+    // No auto-login: the account is inactive until the email OTP is verified.
+    const { email: registeredEmail } = await registerRequest(
+      email,
+      username,
+      password,
+      passwordConfirm,
+    );
+    localStorage.setItem(PENDING_EMAIL_KEY, registeredEmail);
+    return registeredEmail;
+  };
+
+  const verifyOtp = async (email: string, code: string) => {
+    const { user: userData, tokens } = await verifyOtpRequest(email, code);
+    localStorage.setItem('access_token', tokens.access);
+    localStorage.setItem('refresh_token', tokens.refresh);
+    localStorage.removeItem(PENDING_EMAIL_KEY);
+    setUser(userData);
   };
 
   const logout = () => {
@@ -75,7 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, verifyOtp, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

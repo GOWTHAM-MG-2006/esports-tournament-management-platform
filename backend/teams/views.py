@@ -21,6 +21,9 @@ class TeamViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Admins see every team (needed for the admin Teams section).
+        if getattr(user, 'role', None) == 'admin':
+            return Team.objects.all().order_by('id')
         return (
             Team.objects.filter(Q(owner=user) | Q(members__user=user))
             .distinct()
@@ -35,6 +38,9 @@ class TeamViewSet(viewsets.ModelViewSet):
             'add_member',
             'remove_member',
         ):
+            # Admins may manage any team; owners manage their own.
+            if getattr(self.request.user, 'role', None) == 'admin':
+                return [IsAuthenticated()]
             return [IsAuthenticated(), IsTeamOwner()]
         return [IsAuthenticated()]
 

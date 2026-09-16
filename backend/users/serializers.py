@@ -59,3 +59,12 @@ class UserPublicSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'username', 'role', 'date_joined']
         read_only_fields = fields
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    """Admin user management: role assignment and activation flag."""
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'role', 'is_active', 'date_joined']
+        read_only_fields = ['id', 'email', 'username', 'date_joined']

@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import VerifyPage from './pages/VerifyPage';
 import TeamsPage from './pages/TeamsPage';
 import TeamDetailPage from './pages/TeamDetailPage';
 import TournamentsPage from './pages/TournamentsPage';
@@ -22,6 +23,7 @@ export default function App() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/verify" element={<VerifyPage />} />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>

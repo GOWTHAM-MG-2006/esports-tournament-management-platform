@@ -222,6 +222,48 @@ class TestTournamentEndpoints:
         response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
         assert response.status_code == 201
 
+    def _make_admin(self):
+        admin = User.objects.create_user(
+            email='admin@t.com', username='tadmin', password='pass1234', role='admin'
+        )
+        self.client.force_authenticate(user=admin)
+        return admin
+
+    def test_admin_can_edit_others_tournament(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        self._make_admin()
+        response = self.client.patch(
+            f'{self.url}{t.id}/', {'name': 'Renamed by admin'}, format='json'
+        )
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.name == 'Renamed by admin'
+
+    def test_admin_can_delete_others_tournament(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        self._make_admin()
+        response = self.client.delete(f'{self.url}{t.id}/')
+        assert response.status_code == 204
+        assert not Tournament.objects.filter(id=t.id).exists()
+
+    def test_admin_can_open_registration_for_others_tournament(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        self._make_admin()
+        response = self.client.post(f'{self.url}{t.id}/open-registration/')
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.status == 'registration_open'
+
+    def test_organizer_cannot_edit_others_tournament(self):
+        other_org = User.objects.create_user(
+            email='org2@t.com', username='org2', password='pass1234', role='organizer'
+        )
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=other_org)
+        response = self.client.patch(
+            f'{self.url}{t.id}/', {'name': 'Sneaky rename'}, format='json'
+        )
+        assert response.status_code == 403
+
     def test_create_tournament_end_before_start(self):
         response = self.client.post(
             self.url,

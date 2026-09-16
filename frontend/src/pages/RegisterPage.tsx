@@ -34,8 +34,8 @@ export default function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await register(email, username, password, passwordConfirm);
-      navigate('/');
+      const registeredEmail = await register(email, username, password, passwordConfirm);
+      navigate('/verify', { state: { email: registeredEmail } });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
       const msg = axiosErr.response?.data?.message ?? axiosErr.message ?? 'Registration failed';

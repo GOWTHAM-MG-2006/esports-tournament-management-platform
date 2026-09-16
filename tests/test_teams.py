@@ -297,3 +297,50 @@ class TestTeamViewSet:
         response = self.client.post(f'{self.url}{team.id}/leave/')
         assert response.status_code == 400
         assert Team.objects.filter(id=team.id).exists()
+
+    def _make_admin(self):
+        admin = User.objects.create_user(
+            email='admin@t.com', username='tadmin', password='pass1234', role='admin'
+        )
+        self.client.force_authenticate(user=admin)
+        return admin
+
+    def test_admin_sees_all_teams(self):
+        other = User.objects.create_user(
+            email='other@t.com', username='other', password='pass1234'
+        )
+        Team.objects.create(name='Fnatic', tag='FNC', owner=other)
+        Team.objects.create(name='G2', tag='G2', owner=self.user)
+        self._make_admin()
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        assert len(response.data['data']['results']) == 2
+
+    def test_non_admin_sees_only_own_teams(self):
+        other = User.objects.create_user(
+            email='other@t.com', username='other', password='pass1234'
+        )
+        Team.objects.create(name='Fnatic', tag='FNC', owner=other)
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        assert len(response.data['data']['results']) == 0
+
+    def test_admin_can_delete_any_team(self):
+        other = User.objects.create_user(
+            email='other@t.com', username='other', password='pass1234'
+        )
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=other)
+        self._make_admin()
+        response = self.client.delete(f'{self.url}{team.id}/')
+        assert response.status_code == 204
+        assert not Team.objects.filter(id=team.id).exists()
+
+    def test_outsider_cannot_delete_team(self):
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.user)
+        outsider = User.objects.create_user(
+            email='out3@m.com', username='outsider3', password='pass1234'
+        )
+        self.client.force_authenticate(user=outsider)
+        response = self.client.delete(f'{self.url}{team.id}/')
+        assert response.status_code == 404
+        assert Team.objects.filter(id=team.id).exists()

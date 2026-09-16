@@ -31,6 +31,21 @@ def notify_result_posted(to_email, match_label, winner_name):
     )
 
 
+def send_otp_email(to_email, code):
+    if not to_email:
+        return
+    send_mail(
+        subject='Your verification code',
+        message=(
+            f'Your verification code is: {code}\n'
+            'It expires in 10 minutes. If you did not request this, ignore this email.'
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[to_email],
+        fail_silently=True,
+    )
+
+
 def notify_registration_confirmed(to_email, tournament_name, team_name):
     if not to_email:
         return

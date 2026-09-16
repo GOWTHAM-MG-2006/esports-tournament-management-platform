@@ -21,8 +21,21 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      const msg = axiosErr.response?.data?.message ?? axiosErr.message ?? 'Login failed';
+      const axiosErr = err as {
+        response?: {
+          status?: number;
+          data?: { message?: string; data?: { code?: string; email?: string } };
+        };
+        message?: string;
+      };
+      const body = axiosErr.response?.data;
+      if (body?.data?.code === 'email_unverified') {
+        const pendingEmail = body.data.email ?? email;
+        localStorage.setItem('pending_verification_email', pendingEmail);
+        navigate('/verify', { state: { email: pendingEmail } });
+        return;
+      }
+      const msg = body?.message ?? axiosErr.message ?? 'Login failed';
       setError(msg);
     } finally {
       setSubmitting(false);

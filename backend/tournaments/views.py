@@ -31,6 +31,9 @@ class TournamentViewSet(viewsets.ModelViewSet):
         return Tournament.objects.all().order_by('id')
 
     def check_ownership(self, tournament):
+        # Admins may manage any tournament (edit, delete, lifecycle actions).
+        if getattr(self.request.user, 'role', None) == 'admin':
+            return
         if tournament.created_by != self.request.user:
             raise PermissionDenied('You can only modify tournaments you created.')
 
