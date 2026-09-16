@@ -45,15 +45,15 @@ class BracketService:
     def generate_bracket(tournament):
         """Generate a single-elimination bracket for a tournament.
 
-        - Requires tournament status 'registration_open' and >= 2 approved registrations.
+        - Requires tournament status 'in_progress' and >= 2 approved registrations.
         - Raises ValueError with a clear message otherwise.
         - Fills a power-of-2 bracket using recursive seeding; missing slots become
           bye matches (is_bye=True, status='bye') whose single team auto-advances.
-        - Sets tournament.status = 'in_progress' when done.
+        - Keeps tournament.status = 'in_progress' when done.
         - Returns the created matches ordered by round then position.
         """
-        if tournament.status != 'registration_open':
-            raise ValueError('Bracket can only be generated from registration_open status')
+        if tournament.status != 'in_progress':
+            raise ValueError('Bracket can only be generated from in_progress status')
         approved = (
             Registration.objects
             .filter(tournament=tournament, status='approved')
@@ -144,8 +144,12 @@ class BracketService:
     def submit_result(tournament, match_id, winner_id, team1_score='', team2_score=''):
         """Validate and record a match result, then auto-advance the winner.
 
-        - Raises ValueError if the match is already completed, is a bye match, or
-          the winner is not a participant.
+        - Raises ValueError if the match is already completed, is a bye match,
+          the winner is not a participant, any numeric score is negative, or
+          (when both scores are numeric and differ) the winner's score is not
+          strictly greater than the loser's.
+        - Equal numeric scores record a draw: completed, winner None, scores
+          saved, no advancement. A drawn final still completes the tournament.
         - Marks the match completed and propagates the winner to the next round.
         - Completes the tournament when the final match is submitted.
         """
@@ -162,24 +166,49 @@ class BracketService:
         if winner not in [match.team1, match.team2]:
             raise ValueError('Winner must be one of the match participants')
 
-        match.winner = winner
+        # Score consistency: numeric scores must be non-negative. When both
+        # scores are numeric and equal, the result is a draw (completed, no
+        # winner, no advancement). Blank scores are allowed (organizer
+        # declares a winner without scores).
+        def _parse(value):
+            try:
+                return int(str(value).strip())
+            except (TypeError, ValueError):
+                return None
+
+        score1, score2 = _parse(team1_score), _parse(team2_score)
+        if (score1 is not None and score1 < 0) or (
+            score2 is not None and score2 < 0
+        ):
+            raise ValueError('Scores cannot be negative')
+        draw = (
+            score1 is not None and score2 is not None and score1 == score2
+        )
+        if not draw and score1 is not None and score2 is not None:
+            winner_score = score1 if winner == match.team1 else score2
+            loser_score = score2 if winner == match.team1 else score1
+            if winner_score <= loser_score:
+                raise ValueError("Winner's score must be higher than the loser's score")
+
+        match.winner = None if draw else winner
         match.team1_score = team1_score
         match.team2_score = team2_score
         match.status = 'completed'
         match.save()
 
-        # Auto-advance to next round.
+        # Auto-advance to next round (skipped for draws — there is no winner).
         next_round = match.round + 1
         next_pos = match.position // 2
         try:
             next_match = Match.objects.get(
                 tournament=tournament, round=next_round, position=next_pos
             )
-            if match.position % 2 == 0:
-                next_match.team1 = winner
-            else:
-                next_match.team2 = winner
-            next_match.save()
+            if not draw:
+                if match.position % 2 == 0:
+                    next_match.team1 = winner
+                else:
+                    next_match.team2 = winner
+                next_match.save()
         except Match.DoesNotExist:
             tournament.status = 'completed'
             tournament.save()
