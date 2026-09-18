@@ -18,13 +18,15 @@ import type {
 const STATUS_LABELS: Record<TournamentStatus, string> = {
   draft: 'Draft',
   registration_open: 'Registration Open',
+  registration_closed: 'Registration Closed',
   in_progress: 'In Progress',
-  completed: 'Completed',
+  completed: 'Ended',
 };
 
 const STATUS_BADGES: Record<TournamentStatus, string> = {
   draft: 'bg-secondary',
   registration_open: 'bg-primary',
+  registration_closed: 'bg-secondary',
   in_progress: 'bg-warning text-dark',
   completed: 'bg-success',
 };

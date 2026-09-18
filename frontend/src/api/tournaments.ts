@@ -8,6 +8,7 @@ import type { ApiEnvelope, User } from './types';
 export type TournamentStatus =
   | 'draft'
   | 'registration_open'
+  | 'registration_closed'
   | 'in_progress'
   | 'completed';
 
@@ -123,10 +124,35 @@ export async function openRegistration(id: number): Promise<Tournament> {
   return unwrap(res);
 }
 
-/** Close registration for a tournament (registration_open → in_progress). */
+/** Close registration for a tournament (registration_open → registration_closed). */
 export async function closeRegistration(id: number): Promise<Tournament> {
   const res = await api.post<ApiEnvelope<Tournament>>(
     `/tournaments/${id}/close-registration/`,
+  );
+  return unwrap(res);
+}
+
+/** Start a tournament (registration_closed → in_progress). */
+export async function startTournament(id: number): Promise<Tournament> {
+  const res = await api.post<ApiEnvelope<Tournament>>(
+    `/tournaments/${id}/start-tournament/`,
+  );
+  return unwrap(res);
+}
+
+/** Delete a tournament (blocked while in_progress). */
+export async function deleteTournament(id: number): Promise<void> {
+  await api.delete(`/tournaments/${id}/`);
+}
+
+/** Partial-update a tournament (organizer/admin). Never includes `status`. */
+export async function updateTournament(
+  id: number,
+  payload: TournamentUpdatePayload,
+): Promise<Tournament> {
+  const res = await api.patch<ApiEnvelope<Tournament>>(
+    `/tournaments/${id}/`,
+    payload,
   );
   return unwrap(res);
 }
@@ -141,6 +167,19 @@ export async function registerTeam(
     { team_id: teamId },
   );
   return unwrap(res);
+}
+
+/** Partial-update payload. NOTE: `status` is intentionally omitted —
+ * the backend rejects direct status PATCH (400); status only changes
+ * via the lifecycle actions (open/close/start). */
+export interface TournamentUpdatePayload {
+  name?: string;
+  game?: string;
+  max_teams?: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  prize_pool?: string | null;
+  rules?: string;
 }
 
 /** Get all matches for a tournament. */
