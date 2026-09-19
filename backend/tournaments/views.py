@@ -24,8 +24,10 @@ class TournamentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.action == 'my_tournaments':
             return Tournament.objects.filter(created_by=self.request.user).order_by('-id')
-        if self.action == 'open_for_registration':
-            return Tournament.objects.filter(status='registration_open').order_by('-id')
+        if self.action == 'browse':
+            # Browse section ("All Tournaments"): every status except drafts,
+            # visible to all roles (players, organizers, admins).
+            return Tournament.objects.exclude(status='draft').order_by('-id')
         return Tournament.objects.all().order_by('id')
 
     def check_ownership(self, tournament):
@@ -166,8 +168,8 @@ class TournamentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(tournaments, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], url_path='open-for-registration')
-    def open_for_registration(self, request):
+    @action(detail=False, methods=['get'], url_path='browse')
+    def browse(self, request):
         tournaments = self.get_queryset()
         page = self.paginate_queryset(tournaments)
         if page is not None:

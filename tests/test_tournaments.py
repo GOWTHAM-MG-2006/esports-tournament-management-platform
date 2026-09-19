@@ -222,6 +222,25 @@ class TestTournamentEndpoints:
         response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
         assert response.status_code == 201
 
+    def test_create_tournament_end_before_start(self):
+        response = self.client.post(
+            self.url,
+            {'name': 'Bad Dates Cup', 'game': 'LoL', 'max_teams': 8,
+             'start_date': '2026-09-23', 'end_date': '2026-09-21'},
+            format='json',
+        )
+        assert response.status_code == 400
+
+    def test_patch_end_before_start(self):
+        t = Tournament.objects.create(
+            name='T1', game='LoL', max_teams=8, created_by=self.org,
+            status='draft', start_date='2026-09-23',
+        )
+        response = self.client.patch(
+            f'{self.url}{t.id}/', {'end_date': '2026-09-21'}, format='json'
+        )
+        assert response.status_code == 400
+
     def test_create_tournament_min_exceeds_max(self):
         response = self.client.post(
             self.url,
@@ -230,3 +249,42 @@ class TestTournamentEndpoints:
             format='json',
         )
         assert response.status_code == 400
+
+    def _create_all_statuses(self):
+        statuses = [
+            ('Draft Cup', 'draft'),
+            ('Open Cup', 'registration_open'),
+            ('Closed Cup', 'registration_closed'),
+            ('Live Cup', 'in_progress'),
+            ('Done Cup', 'completed'),
+        ]
+        for name, status in statuses:
+            Tournament.objects.create(
+                name=name, game='LoL', max_teams=8,
+                created_by=self.org, status=status,
+            )
+
+    def _browse_names(self):
+        response = self.client.get(f'{self.url}browse/')
+        assert response.status_code == 200
+        # Test client sees the rendered envelope: {data: [...] or {results: [...]}}.
+        payload = response.data['data']
+        if isinstance(payload, dict):
+            payload = payload['results']
+        return [t['name'] for t in payload]
+
+    def test_browse_excludes_drafts(self):
+        self._create_all_statuses()
+        names = self._browse_names()
+        assert 'Draft Cup' not in names
+        assert names == ['Done Cup', 'Live Cup', 'Closed Cup', 'Open Cup']
+
+    def test_browse_visible_to_player(self):
+        self._create_all_statuses()
+        player = User.objects.create_user(
+            email='player@t.com', username='bplayer', password='pass1234', role='player'
+        )
+        self.client.force_authenticate(user=player)
+        names = self._browse_names()
+        assert 'Draft Cup' not in names
+        assert len(names) == 4

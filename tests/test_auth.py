@@ -14,7 +14,7 @@ class TestAuthEndpoints:
         self.me_url = '/api/auth/me/'
 
     def test_register_success(self):
-        data = {'email': 'new@test.com', 'username': 'newuser', 'password': 'securepass1', 'password_confirm': 'securepass1'}
+        data = {'email': 'new@test.com', 'username': 'newuser', 'password': 'Str0ng!Pass', 'password_confirm': 'Str0ng!Pass'}
         response = self.client.post(self.register_url, data)
         assert response.status_code == 201
         assert response.data['success'] is True
@@ -22,8 +22,8 @@ class TestAuthEndpoints:
         assert User.objects.filter(email='new@test.com').exists()
 
     def test_register_duplicate_email(self):
-        User.objects.create_user(email='dup@test.com', username='dup', password='pass1234')
-        data = {'email': 'dup@test.com', 'username': 'dup2', 'password': 'pass1234', 'password_confirm': 'pass1234'}
+        User.objects.create_user(email='dup@test.com', username='dup', password='Str0ng!Pass')
+        data = {'email': 'dup@test.com', 'username': 'dup2', 'password': 'Str0ng!Pass', 'password_confirm': 'Str0ng!Pass'}
         response = self.client.post(self.register_url, data)
         assert response.status_code == 400
 
@@ -49,7 +49,7 @@ class TestAuthEndpoints:
         assert response.status_code == 401
 
     def test_refresh_success(self):
-        data = {'email': 'ref@test.com', 'username': 'refuser', 'password': 'securepass1', 'password_confirm': 'securepass1'}
+        data = {'email': 'ref@test.com', 'username': 'refuser', 'password': 'Str0ng!Pass', 'password_confirm': 'Str0ng!Pass'}
         reg = self.client.post(self.register_url, data)
         refresh = reg.data['data']['tokens']['refresh']
         response = self.client.post(self.refresh_url, {'refresh': refresh})
@@ -75,4 +75,33 @@ class TestAuthEndpoints:
         user = User.objects.create_user(email='out2@test.com', username='outuser2', password='mypassword')
         self.client.force_authenticate(user=user)
         response = self.client.post('/api/auth/logout/', {})
+        assert response.status_code == 400
+
+    def test_register_rejects_weak_passwords(self):
+        weak_passwords = [
+            'short1!',  # too short
+            'alllowercase1!',  # no uppercase
+            'ALLUPPERCASE1!',  # no lowercase
+            'NoDigitsHere!',  # no digit
+            'NoSpecial123',  # no special char
+            'password',  # common password
+        ]
+        for i, pwd in enumerate(weak_passwords):
+            data = {
+                'email': f'weak{i}@test.com',
+                'username': f'weakuser{i}',
+                'password': pwd,
+                'password_confirm': pwd,
+            }
+            response = self.client.post(self.register_url, data)
+            assert response.status_code == 400, f'weak password accepted: {pwd}'
+
+    def test_register_rejects_password_too_short(self):
+        data = {
+            'email': 'short@test.com',
+            'username': 'shortuser',
+            'password': 'Aa1!',
+            'password_confirm': 'Aa1!',
+        }
+        response = self.client.post(self.register_url, data)
         assert response.status_code == 400

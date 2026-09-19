@@ -41,6 +41,20 @@ class TournamentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'min_team_members cannot exceed max_team_members.'
             )
+        # Fall back to the stored dates so partial updates that touch only
+        # one of the two dates are still validated against the other.
+        start = data.get(
+            'start_date',
+            self.instance.start_date if self.instance else None,
+        )
+        end = data.get(
+            'end_date',
+            self.instance.end_date if self.instance else None,
+        )
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                'end_date cannot be before start_date.'
+            )
         return data
 
     def get_registration_count(self, obj):

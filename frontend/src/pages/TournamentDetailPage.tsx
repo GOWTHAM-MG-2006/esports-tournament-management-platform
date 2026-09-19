@@ -204,8 +204,16 @@ export default function TournamentDetailPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEditLoading(true);
     setEditError(null);
+    if (
+      editForm.start_date &&
+      editForm.end_date &&
+      editForm.end_date < editForm.start_date
+    ) {
+      setEditError('End date cannot be before start date.');
+      return;
+    }
+    setEditLoading(true);
     try {
       await updateTournament(tournamentId, editForm);
       setEditing(false);
@@ -543,6 +551,7 @@ export default function TournamentDetailPage() {
                     type="date"
                     className="form-control"
                     value={editForm.end_date ?? ''}
+                    min={editForm.start_date ?? undefined}
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,

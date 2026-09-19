@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   listTournaments,
   listMyTournaments,
-  listOpenForRegistration,
+  listVisibleTournaments,
   createTournament,
   handleAxiosError,
 } from '../api/tournaments';
@@ -38,15 +38,15 @@ const STATUS_BADGES: Record<TournamentStatus, string> = {
 // Component
 // ---------------------------------------------------------------------------
 
-type Tab = 'my' | 'open';
+type Tab = 'my' | 'all';
 
 export default function TournamentsPage() {
   const { user } = useAuth();
   const isOrganizerOrAdmin = user?.role === 'organizer' || user?.role === 'admin';
 
-  const [activeTab, setActiveTab] = useState<Tab>(isOrganizerOrAdmin ? 'my' : 'open');
+  const [activeTab, setActiveTab] = useState<Tab>(isOrganizerOrAdmin ? 'my' : 'all');
   const [myTournaments, setMyTournaments] = useState<Tournament[]>([]);
-  const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
+  const [visibleTournaments, setVisibleTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,12 +81,12 @@ export default function TournamentsPage() {
     }
   }, []);
 
-  const loadOpenTournaments = useCallback(async () => {
+  const loadVisibleTournaments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await listOpenForRegistration();
-      setOpenTournaments(data);
+      const data = await listVisibleTournaments();
+      setVisibleTournaments(data);
     } catch (err) {
       setError(handleAxiosError(err));
     } finally {
@@ -111,13 +111,13 @@ export default function TournamentsPage() {
     if (activeTab === 'my') {
       loadMyTournaments();
     } else {
-      loadOpenTournaments();
+      loadVisibleTournaments();
     }
     // Also load all for admin users
     if (user?.role === 'admin') {
       loadAllTournaments();
     }
-  }, [activeTab, loadMyTournaments, loadOpenTournaments, loadAllTournaments, user?.role]);
+  }, [activeTab, loadMyTournaments, loadVisibleTournaments, loadAllTournaments, user?.role]);
 
   // -----------------------------------------------------------------------
   // Form handlers
@@ -150,6 +150,11 @@ export default function TournamentsPage() {
       formMinMembers > Number(formMaxMembers)
     ) {
       setFormError('Min team members cannot exceed max team members.');
+      return;
+    }
+
+    if (formStartDate && formEndDate && formEndDate < formStartDate) {
+      setFormError('End date cannot be before start date.');
       return;
     }
 
@@ -215,17 +220,17 @@ export default function TournamentsPage() {
             </li>
             <li className="nav-item" role="presentation">
               <button
-                className={`nav-link ${activeTab === 'open' ? 'active' : ''}`}
+                className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
                 id="open-tournaments-tab"
                 data-bs-toggle="tab"
                 data-bs-target="#open-tournaments"
                 type="button"
                 role="tab"
                 aria-controls="open-tournaments"
-                aria-selected={activeTab === 'open'}
-                onClick={() => setActiveTab('open')}
+                aria-selected={activeTab === 'all'}
+                onClick={() => setActiveTab('all')}
               >
-                Open for Registration
+                All Tournaments
               </button>
             </li>
           </ul>
@@ -361,13 +366,14 @@ export default function TournamentsPage() {
                           <label className="form-label" htmlFor="t-end">
                             End Date
                           </label>
-                          <input
-                            id="t-end"
-                            type="date"
-                            className="form-control"
-                            value={formEndDate}
-                            onChange={(e) => setFormEndDate(e.target.value)}
-                          />
+                      <input
+                        id="t-end"
+                        type="date"
+                        className="form-control"
+                        value={formEndDate}
+                        min={formStartDate || undefined}
+                        onChange={(e) => setFormEndDate(e.target.value)}
+                      />
                         </div>
 
                         {/* Prize Pool */}
@@ -492,12 +498,12 @@ export default function TournamentsPage() {
 
             {/* Open for Registration Tab */}
             <div
-              className={`tab-pane fade ${activeTab === 'open' ? 'show active' : ''}`}
+              className={`tab-pane fade ${activeTab === 'all' ? 'show active' : ''}`}
               id="open-tournaments"
               role="tabpanel"
               aria-labelledby="open-tournaments-tab"
             >
-              <h5 className="mb-3">Open for Registration</h5>
+              <h5 className="mb-3">All Tournaments</h5>
 
               {/* Loading */}
               {loading && (
@@ -514,16 +520,16 @@ export default function TournamentsPage() {
               )}
 
               {/* Empty */}
-              {!loading && !error && openTournaments.length === 0 && (
+              {!loading && !error && visibleTournaments.length === 0 && (
                 <div className="alert alert-info">
-                  No tournaments currently open for registration.
+                  No tournaments available yet.
                 </div>
               )}
 
               {/* Tournament cards */}
-              {!loading && !error && openTournaments.length > 0 && (
+              {!loading && !error && visibleTournaments.length > 0 && (
                 <div className="row g-3">
-                  {openTournaments.map((t) => (
+                  {visibleTournaments.map((t) => (
                     <div key={t.id} className="col-md-6 col-lg-4">
                       <Link
                         to={`/tournaments/${t.id}`}
@@ -579,7 +585,7 @@ export default function TournamentsPage() {
       ) : (
         // Regular user view: Only "Open for Registration" section (no tabs)
         <>
-          <h5 className="mb-3">Tournaments Open for Registration</h5>
+          <h5 className="mb-3">All Tournaments</h5>
 
           {/* Loading */}
           {loading && (
@@ -596,16 +602,16 @@ export default function TournamentsPage() {
           )}
 
           {/* Empty */}
-          {!loading && !error && openTournaments.length === 0 && (
+          {!loading && !error && visibleTournaments.length === 0 && (
             <div className="alert alert-info">
-              No tournaments currently open for registration.
+              No tournaments available yet.
             </div>
           )}
 
           {/* Tournament cards */}
-          {!loading && !error && openTournaments.length > 0 && (
+          {!loading && !error && visibleTournaments.length > 0 && (
             <div className="row g-3">
-              {openTournaments.map((t) => (
+              {visibleTournaments.map((t) => (
                 <div key={t.id} className="col-md-6 col-lg-4">
                   <Link
                     to={`/tournaments/${t.id}`}

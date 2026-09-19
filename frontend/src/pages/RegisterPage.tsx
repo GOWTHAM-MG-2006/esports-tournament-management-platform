@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
+import { getPasswordRequirements, isStrongPassword } from '../utils/password';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -19,6 +21,13 @@ export default function RegisterPage() {
 
     if (password !== passwordConfirm) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      setError(
+        'Password is too weak. It must be at least 8 characters long and include an uppercase letter, a lowercase letter, a digit, and a special character.',
+      );
       return;
     }
 
@@ -82,28 +91,34 @@ export default function RegisterPage() {
             <label htmlFor="password" className="form-label">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
-              className="form-control"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              onChange={setPassword}
               autoComplete="new-password"
             />
+            {password.length > 0 && (
+              <ul className="list-unstyled small mt-2 mb-0">
+                {getPasswordRequirements(password).map((req) => (
+                  <li
+                    key={req.label}
+                    className={req.met ? 'text-success' : 'text-muted'}
+                  >
+                    {req.met ? '✓' : '○'} {req.label}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="mb-3">
             <label htmlFor="password_confirm" className="form-label">
               Confirm Password
             </label>
-            <input
+            <PasswordInput
               id="password_confirm"
-              type="password"
-              className="form-control"
               value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-              required
+              onChange={setPasswordConfirm}
               autoComplete="new-password"
             />
           </div>

@@ -112,9 +112,9 @@ export async function listMyTournaments(): Promise<Tournament[]> {
   return unwrapList(res);
 }
 
-/** List tournaments open for registration. */
-export async function listOpenForRegistration(): Promise<Tournament[]> {
-  const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/open-for-registration/');
+/** List all visible tournaments (every status except draft). Powers the "All Tournaments" browse section. */
+export async function listVisibleTournaments(): Promise<Tournament[]> {
+  const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/browse/');
   return unwrapList(res);
 }
 

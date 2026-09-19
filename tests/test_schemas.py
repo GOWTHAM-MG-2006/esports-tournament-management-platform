@@ -11,15 +11,26 @@ class TestEnvelopeShape:
         data = {
             'email': 'a@b.com',
             'username': 'u1',
-            'password': 'pass1234',
-            'password_confirm': 'pass1234',
+            'password': 'Str0ng!Pass',
+            'password_confirm': 'Str0ng!Pass',
         }
         s = UserRegisterSerializer(data=data)
         assert s.is_valid(), s.errors
         user = s.save()
         assert user.email == 'a@b.com'
         assert user.username == 'u1'
-        assert user.check_password('pass1234')
+        assert user.check_password('Str0ng!Pass')
+
+    def test_register_serializer_rejects_weak_password(self):
+        data = {
+            'email': 'a@b.com',
+            'username': 'u1',
+            'password': 'weakpass1',
+            'password_confirm': 'weakpass1',
+        }
+        s = UserRegisterSerializer(data=data)
+        assert not s.is_valid()
+        assert 'password' in s.errors
 
     def test_register_serializer_mismatched_passwords(self):
         data = {

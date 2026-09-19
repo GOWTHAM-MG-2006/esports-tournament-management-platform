@@ -1,4 +1,6 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -21,6 +23,16 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data['password'] != data['password_confirm']:
             raise ValidationError({'password_confirm': 'Passwords do not match'})
+        # Enforce strong passwords (Django validators incl. StrongPasswordValidator).
+        # Use a temp user so similarity checks see the email/username.
+        temp_user = User(
+            email=data.get('email', ''),
+            username=data.get('username', ''),
+        )
+        try:
+            validate_password(data['password'], user=temp_user)
+        except DjangoValidationError as exc:
+            raise ValidationError({'password': list(exc.messages)})
         return data
 
     def create(self, validated_data):
