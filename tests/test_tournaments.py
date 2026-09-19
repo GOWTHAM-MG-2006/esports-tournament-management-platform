@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from tournaments.models import Tournament, Registration
-from teams.models import Team
+from teams.models import Team, TeamMember
 
 User = get_user_model()
 
@@ -21,6 +21,14 @@ class TestTournamentEndpoints:
         response = self.client.post(self.url, {'name': 'Test Cup', 'game': 'LoL', 'max_teams': 8})
         assert response.status_code == 201
 
+    def test_create_tournament_player_forbidden(self):
+        player = User.objects.create_user(
+            email='player@t.com', username='player', password='pass1234', role='player'
+        )
+        self.client.force_authenticate(user=player)
+        response = self.client.post(self.url, {'name': 'Sneaky Cup', 'game': 'LoL', 'max_teams': 8})
+        assert response.status_code == 403
+
     def test_open_registration(self):
         t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
         response = self.client.post(f'{self.url}{t.id}/open-registration/')
@@ -31,6 +39,7 @@ class TestTournamentEndpoints:
     def test_register_team(self):
         t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_open')
         team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
+        TeamMember.objects.create(team=team, user=self.org, role='captain')
         response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
         assert response.status_code == 201
 
@@ -51,6 +60,8 @@ class TestTournamentEndpoints:
         t = Tournament.objects.create(name='T1', game='LoL', max_teams=1, created_by=self.org, status='registration_open')
         team1 = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
         team2 = Team.objects.create(name='G2', tag='G2', owner=self.org)
+        TeamMember.objects.create(team=team1, user=self.org, role='captain')
+        TeamMember.objects.create(team=team2, user=self.org, role='captain')
         first = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team1.id})
         assert first.status_code == 201
         response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team2.id})
@@ -59,6 +70,7 @@ class TestTournamentEndpoints:
     def test_set_seeds(self):
         t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_open')
         team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
+        TeamMember.objects.create(team=team, user=self.org, role='captain')
         self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
         reg = Registration.objects.get(tournament=t, team=team)
         response = self.client.post(f'{self.url}{t.id}/seed/', {'seeds': {str(reg.id): 1}}, format='json')
@@ -170,4 +182,51 @@ class TestTournamentEndpoints:
     def test_cannot_patch_name_completed(self):
         t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='completed')
         response = self.client.patch(f'{self.url}{t.id}/', {'name': 'Renamed'}, format='json')
+        assert response.status_code == 400
+
+    def test_register_team_too_small(self):
+        t = Tournament.objects.create(
+            name='T1', game='LoL', max_teams=8, created_by=self.org,
+            status='registration_open', min_team_members=5,
+        )
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
+        TeamMember.objects.create(team=team, user=self.org, role='captain')
+        response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
+        assert response.status_code == 400
+
+    def test_register_team_too_large(self):
+        t = Tournament.objects.create(
+            name='T1', game='LoL', max_teams=8, created_by=self.org,
+            status='registration_open', max_team_members=1,
+        )
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
+        TeamMember.objects.create(team=team, user=self.org, role='captain')
+        extra = User.objects.create_user(
+            email='extra@t.com', username='extra', password='pass1234'
+        )
+        TeamMember.objects.create(team=team, user=extra, role='member')
+        response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
+        assert response.status_code == 400
+
+    def test_register_team_within_size_bounds(self):
+        t = Tournament.objects.create(
+            name='T1', game='LoL', max_teams=8, created_by=self.org,
+            status='registration_open', min_team_members=1, max_team_members=5,
+        )
+        team = Team.objects.create(name='Fnatic', tag='FNC', owner=self.org)
+        TeamMember.objects.create(team=team, user=self.org, role='captain')
+        extra = User.objects.create_user(
+            email='extra@t.com', username='extra', password='pass1234'
+        )
+        TeamMember.objects.create(team=team, user=extra, role='member')
+        response = self.client.post(f'{self.url}{t.id}/register-team/', {'team_id': team.id})
+        assert response.status_code == 201
+
+    def test_create_tournament_min_exceeds_max(self):
+        response = self.client.post(
+            self.url,
+            {'name': 'Bad Cup', 'game': 'LoL', 'max_teams': 8,
+             'min_team_members': 6, 'max_team_members': 5},
+            format='json',
+        )
         assert response.status_code == 400

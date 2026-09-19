@@ -11,12 +11,23 @@ export interface TeamMember {
   role: 'captain' | 'member';
 }
 
+export interface TeamJoinRequest {
+  id: number;
+  team: number;
+  team_name: string;
+  user: User;
+  role: 'captain' | 'member';
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+}
+
 export interface Team {
   id: number;
   name: string;
   tag: string;
   owner: User;
   members: TeamMember[];
+  pending_requests: TeamJoinRequest[];
   created_at: string;
 }
 
@@ -48,7 +59,7 @@ function unwrapList<T>(res: { data: unknown }): T[] {
 // API functions
 // ---------------------------------------------------------------------------
 
-/** List all teams owned by the current user. */
+/** List all teams the current user owns or is a member of. */
 export async function listTeams(): Promise<Team[]> {
   const res = await api.get<ApiEnvelope<Team[]>>('/teams/');
   return unwrapList<Team>(res);
@@ -74,13 +85,16 @@ export async function deleteTeam(id: number): Promise<void> {
   await api.delete<ApiEnvelope<null>>(`/teams/${id}/`);
 }
 
-/** Add a member to a team by the player's email address. Returns the new TeamMember. */
+/**
+ * Invite a player to a team by email address.
+ * Creates a pending join request — the player must accept it.
+ */
 export async function addMember(
   teamId: number,
   email: string,
   role: 'captain' | 'member' = 'member',
-): Promise<TeamMember> {
-  const res = await api.post<ApiEnvelope<TeamMember>>(
+): Promise<TeamJoinRequest> {
+  const res = await api.post<ApiEnvelope<TeamJoinRequest>>(
     `/teams/${teamId}/add-member/`,
     { email, role },
   );
@@ -93,4 +107,33 @@ export async function removeMember(
   userId: number,
 ): Promise<void> {
   await api.post(`/teams/${teamId}/remove-member/`, { user_id: userId });
+}
+
+/** Leave a team. Members only — owners get a 400. */
+export async function leaveTeam(teamId: number): Promise<void> {
+  await api.post(`/teams/${teamId}/leave/`);
+}
+
+/** List the current user's pending team invites. */
+export async function getMyRequests(): Promise<TeamJoinRequest[]> {
+  const res = await api.get<ApiEnvelope<TeamJoinRequest[]>>('/teams/requests/');
+  return unwrapList<TeamJoinRequest>(res);
+}
+
+/** Accept a team invite. Returns the new TeamMember. */
+export async function acceptRequest(requestId: number): Promise<TeamMember> {
+  const res = await api.post<ApiEnvelope<TeamMember>>(
+    `/teams/requests/${requestId}/accept/`,
+  );
+  return unwrap(res);
+}
+
+/** Decline a team invite. */
+export async function declineRequest(requestId: number): Promise<void> {
+  await api.post(`/teams/requests/${requestId}/decline/`);
+}
+
+/** Cancel (revoke) a pending invite. Team owner only. */
+export async function cancelRequest(requestId: number): Promise<void> {
+  await api.delete(`/teams/requests/${requestId}/`);
 }

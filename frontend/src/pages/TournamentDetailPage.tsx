@@ -191,6 +191,8 @@ export default function TournamentDetailPage() {
       name: tournament.name,
       game: tournament.game,
       max_teams: tournament.max_teams,
+      min_team_members: tournament.min_team_members,
+      max_team_members: tournament.max_team_members,
       start_date: tournament.start_date,
       end_date: tournament.end_date,
       prize_pool: tournament.prize_pool,
@@ -305,6 +307,10 @@ export default function TournamentDetailPage() {
             <div className="col-sm-6 col-lg-3 mb-2">
               <strong>Teams:</strong> {tournament.registration_count} /{' '}
               {tournament.max_teams}
+            </div>
+            <div className="col-sm-6 col-lg-3 mb-2">
+              <strong>Team size:</strong> {tournament.min_team_members} –{' '}
+              {tournament.max_team_members ?? 'No limit'} members
             </div>
             {tournament.start_date && (
               <div className="col-sm-6 col-lg-3 mb-2">
@@ -468,6 +474,47 @@ export default function TournamentDetailPage() {
                       })
                     }
                     required
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="edit-min-members">
+                    Min Team Members
+                  </label>
+                  <input
+                    id="edit-min-members"
+                    type="number"
+                    min={1}
+                    className="form-control"
+                    value={editForm.min_team_members ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        min_team_members: Number(e.target.value),
+                      })
+                    }
+                    required
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="edit-max-members">
+                    Max Team Members
+                  </label>
+                  <input
+                    id="edit-max-members"
+                    type="number"
+                    min={1}
+                    placeholder="No limit"
+                    className="form-control"
+                    value={editForm.max_team_members ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        max_team_members:
+                          e.target.value === ''
+                            ? null
+                            : Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="col-md-4">

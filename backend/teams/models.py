@@ -29,3 +29,36 @@ class TeamMember(models.Model):
 
     def __str__(self):
         return f"{self.user.username} -> {self.team.name}"
+
+
+class TeamJoinRequest(models.Model):
+    """Invite sent by a team owner; the invited player accepts or declines."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ACCEPTED = 'accepted', 'Accepted'
+        DECLINED = 'declined', 'Declined'
+
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='join_requests')
+    user = models.ForeignKey(
+        'users.User', on_delete=models.CASCADE, related_name='team_join_requests'
+    )
+    requested_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='sent_join_requests',
+    )
+    role = models.CharField(
+        max_length=20, choices=TeamMember.Role.choices, default=TeamMember.Role.MEMBER
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'team_join_requests'
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.team.name} ({self.status})"

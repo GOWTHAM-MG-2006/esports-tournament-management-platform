@@ -50,7 +50,7 @@ export default function Navbar() {
           <ul className="navbar-nav ms-auto">
             {user ? (
               <>
-                {(user.role === 'admin' || user.role === 'organizer') && (
+                {user.role === 'admin' && (
                   <li className="nav-item">
                     <Link
                       className={`nav-link${location.pathname === '/admin' ? ' active' : ''}`}

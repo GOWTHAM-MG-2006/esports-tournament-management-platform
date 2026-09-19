@@ -19,6 +19,8 @@ export interface Tournament {
   format: string;
   status: TournamentStatus;
   max_teams: number;
+  min_team_members: number;
+  max_team_members: number | null;
   start_date: string | null;
   end_date: string | null;
   prize_pool: string | null;
@@ -34,6 +36,8 @@ export interface TournamentCreatePayload {
   format?: string;
   status?: string;
   max_teams: number;
+  min_team_members?: number;
+  max_team_members?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   prize_pool?: string;
@@ -99,6 +103,18 @@ function unwrapList<T>(res: { data: unknown }): T[] {
 /** List all tournaments (handles pagination). */
 export async function listTournaments(): Promise<Tournament[]> {
   const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/');
+  return unwrapList(res);
+}
+
+/** List tournaments created by the current user (organizer). */
+export async function listMyTournaments(): Promise<Tournament[]> {
+  const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/my-tournaments/');
+  return unwrapList(res);
+}
+
+/** List tournaments open for registration. */
+export async function listOpenForRegistration(): Promise<Tournament[]> {
+  const res = await api.get<ApiEnvelope<Tournament[]>>('/tournaments/open-for-registration/');
   return unwrapList(res);
 }
 
@@ -176,6 +192,8 @@ export interface TournamentUpdatePayload {
   name?: string;
   game?: string;
   max_teams?: number;
+  min_team_members?: number;
+  max_team_members?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   prize_pool?: string | null;
@@ -236,10 +254,21 @@ export function handleAxiosError(err: unknown): string {
     'response' in err
   ) {
     const axiosErr = err as {
-      response?: { data?: { message?: string } };
+      response?: { data?: unknown };
       message?: string;
     };
-    return axiosErr.response?.data?.message ?? axiosErr.message ?? 'Unknown error';
+    const data = axiosErr.response?.data;
+    if (data && typeof data === 'object') {
+      const body = data as Record<string, unknown>;
+      if (typeof body.message === 'string' && body.message) return body.message;
+      // DRF default errors use `detail` (permission denied, not found, ...).
+      if (typeof body.detail === 'string' && body.detail) return body.detail;
+      if (Array.isArray(body.detail)) return body.detail.map(String).join(' ');
+      if (Array.isArray(body.non_field_errors)) {
+        return body.non_field_errors.map(String).join(' ');
+      }
+    }
+    return axiosErr.message ?? 'Unknown error';
   }
   if (err instanceof Error) return err.message;
   return 'Unknown error';

@@ -5,9 +5,12 @@ import {
   deleteTeam,
   getTeam,
   removeMember,
+  leaveTeam,
+  cancelRequest,
   type Team,
 } from '../api/teams';
 import { handleAxiosError } from '../api/tournaments';
+import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // ---------------------------------------------------------------------------
@@ -18,14 +21,17 @@ export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const teamId = Number(id);
+  const { user } = useAuth();
 
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
   const [memberEmail, setMemberEmail] = useState('');
-  const [memberRole, setMemberRole] = useState<'captain' | 'member'>('member');
   const [busy, setBusy] = useState(false);
+
+  // Only the team owner manages the roster; members get a read-only view.
+  const isOwner = !!team && !!user && team.owner.id === user.id;
 
   const fetchTeam = useCallback(async () => {
     if (!teamId) return;
@@ -52,10 +58,16 @@ export default function TeamDetailPage() {
     }
     setBusy(true);
     try {
-      await addMember(teamId, email, memberRole);
-      setAlert({ type: 'success', text: 'Member added.' });
+      await addMember(teamId, email, 'member');
       setMemberEmail('');
-      await fetchTeam();
+      // Best-effort refresh: a refresh failure must not overwrite the
+      // confirmed success (the invite was already created server-side).
+      try {
+        await fetchTeam();
+      } catch {
+        /* list refreshes on next visit */
+      }
+      setAlert({ type: 'success', text: 'Invite sent successfully. The player must accept it.' });
     } catch (err: unknown) {
       setAlert({ type: 'danger', text: handleAxiosError(err) });
     } finally {
@@ -74,10 +86,31 @@ export default function TeamDetailPage() {
     }
   }
 
+  async function handleRevokeInvite(requestId: number, email: string) {
+    if (!window.confirm(`Cancel the pending invite for ${email}?`)) return;
+    try {
+      await cancelRequest(requestId);
+      setAlert({ type: 'success', text: 'Invite cancelled.' });
+      await fetchTeam();
+    } catch (err: unknown) {
+      setAlert({ type: 'danger', text: handleAxiosError(err) });
+    }
+  }
+
   async function handleDelete() {
     if (!team || !window.confirm(`Delete team "${team.name}"? This cannot be undone.`)) return;
     try {
       await deleteTeam(team.id);
+      void navigate('/teams');
+    } catch (err: unknown) {
+      setAlert({ type: 'danger', text: handleAxiosError(err) });
+    }
+  }
+
+  async function handleLeave() {
+    if (!team || !window.confirm(`Leave team "${team.name}"?`)) return;
+    try {
+      await leaveTeam(team.id);
       void navigate('/teams');
     } catch (err: unknown) {
       setAlert({ type: 'danger', text: handleAxiosError(err) });
@@ -115,9 +148,16 @@ export default function TeamDetailPage() {
         <h2 className="mb-0">
           {team.name} <span className="badge bg-secondary">{team.tag}</span>
         </h2>
-        <button className="btn btn-sm btn-outline-danger" onClick={() => void handleDelete()}>
-          Delete
-        </button>
+        {isOwner && (
+          <button className="btn btn-sm btn-outline-danger" onClick={() => void handleDelete()}>
+            Delete
+          </button>
+        )}
+        {!isOwner && (
+          <button className="btn btn-sm btn-outline-warning" onClick={() => void handleLeave()}>
+            Leave
+          </button>
+        )}
       </div>
 
       <div className="row text-muted small mb-3">
@@ -136,12 +176,12 @@ export default function TeamDetailPage() {
       ) : (
         <table className="table table-sm align-middle">
           <thead>
-            <tr>
-              <th>User</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th aria-label="Actions" />
-            </tr>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                {isOwner && <th aria-label="Actions" />}
+              </tr>
           </thead>
           <tbody>
             {team.members.map((m) => (
@@ -154,12 +194,14 @@ export default function TeamDetailPage() {
                   </span>
                 </td>
                 <td className="text-end">
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => void handleRemoveMember(m.user.id, m.user.username)}
-                  >
-                    Remove
-                  </button>
+                  {isOwner && (
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => void handleRemoveMember(m.user.id, m.user.username)}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -167,9 +209,10 @@ export default function TeamDetailPage() {
         </table>
       )}
 
+      {isOwner && (
       <div className="card mt-4">
         <div className="card-header">
-          <strong>Add Member</strong>
+          <strong>Invite Member</strong>
         </div>
         <div className="card-body">
           <form onSubmit={(e) => void handleAddMember(e)} noValidate>
@@ -189,30 +232,45 @@ export default function TeamDetailPage() {
                 />
               </div>
               <div className="col-auto">
-                <label className="form-label small" htmlFor="detail-member-role">
-                  Role
-                </label>
-                <select
-                  id="detail-member-role"
-                  className="form-select form-select-sm"
-                  value={memberRole}
-                  onChange={(e) =>
-                    setMemberRole(e.target.value === 'captain' ? 'captain' : 'member')
-                  }
-                >
-                  <option value="member">Member</option>
-                  <option value="captain">Captain</option>
-                </select>
-              </div>
-              <div className="col-auto">
                 <button type="submit" className="btn btn-sm btn-success" disabled={busy}>
-                  {busy ? <span className="spinner-border spinner-border-sm" /> : 'Add'}
+                  {busy ? <span className="spinner-border spinner-border-sm" /> : 'Invite'}
                 </button>
               </div>
+            </div>
+            <div className="form-text mt-2">
+              The player receives a join request and must accept it.
             </div>
           </form>
         </div>
       </div>
+      )}
+
+      {isOwner && team.pending_requests.length > 0 && (
+        <div className="card mt-4 border-warning">
+          <div className="card-header">
+            <strong>Pending Invites</strong>
+          </div>
+          <ul className="list-group list-group-flush">
+            {team.pending_requests.map((r) => (
+              <li
+                key={r.id}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <div>
+                  {r.user.username || r.user.email}
+                  <span className="badge bg-info ms-2">{r.role}</span>
+                </div>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => void handleRevokeInvite(r.id, r.user.email)}
+                >
+                  Revoke
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

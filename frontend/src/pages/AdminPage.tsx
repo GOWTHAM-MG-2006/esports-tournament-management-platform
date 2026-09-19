@@ -8,13 +8,19 @@ import { listTeams } from '../api/teams';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // ---------------------------------------------------------------------------
-// AdminPage (Day 19 spec) — organizer/admin overview.
+// AdminPage (Day 19 spec) — admin-only overview.
 // Gated client-side by role; server-side RBAC still enforced per endpoint.
 // ---------------------------------------------------------------------------
 
-/** Backend root derived from the API base (strips trailing `/api`). */
+/** Backend root for the Django admin link.
+ * Prefers explicit VITE_BACKEND_URL; derives from an absolute VITE_API_URL;
+ * falls back to the local runserver port when on the Vite dev proxy
+ * (a relative '/api' base would otherwise resolve to the frontend itself). */
 function backendRoot(): string {
-  return API_BASE.replace(/\/api\/?$/, '') || window.location.origin;
+  const explicit = import.meta.env.VITE_BACKEND_URL as string | undefined;
+  if (explicit) return explicit.replace(/\/$/, '');
+  if (/^https?:\/\//i.test(API_BASE)) return API_BASE.replace(/\/api\/?$/, '');
+  return `${window.location.protocol}//${window.location.hostname}:8000`;
 }
 
 export default function AdminPage() {
@@ -23,7 +29,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'organizer';
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     if (!isAdmin) {
@@ -58,8 +64,8 @@ export default function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="alert alert-danger">
-        Access denied — this page requires the <strong>organizer</strong> or{' '}
-        <strong>admin</strong> role. Your role: <strong>{user?.role ?? 'unknown'}</strong>.
+        Access denied — this page requires the <strong>admin</strong> role.
+        Your role: <strong>{user?.role ?? 'unknown'}</strong>.
       </div>
     );
   }

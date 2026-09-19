@@ -17,6 +17,8 @@ class Tournament(models.Model):
     format = models.CharField(max_length=30, choices=Format.choices, default=Format.SINGLE_ELIMINATION)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     max_teams = models.PositiveIntegerField()
+    min_team_members = models.PositiveIntegerField(default=1)
+    max_team_members = models.PositiveIntegerField(null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     prize_pool = models.CharField(max_length=200, blank=True, default='')

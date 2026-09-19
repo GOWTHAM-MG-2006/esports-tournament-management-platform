@@ -16,6 +16,8 @@ function makeTournament(id: number): Tournament {
     format: 'single_elimination',
     status: 'registration_open',
     max_teams: 8,
+    min_team_members: 1,
+    max_team_members: null,
     start_date: null,
     end_date: null,
     prize_pool: null,
