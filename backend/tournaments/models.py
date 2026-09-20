@@ -8,6 +8,7 @@ class Tournament(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
         REGISTRATION_OPEN = 'registration_open', 'Registration Open'
+        REGISTRATION_CLOSED = 'registration_closed', 'Registration Closed'
         IN_PROGRESS = 'in_progress', 'In Progress'
         COMPLETED = 'completed', 'Completed'
 
