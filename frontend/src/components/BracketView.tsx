@@ -75,12 +75,17 @@ export function MatchCard({ match }: { match: Match }) {
           {match.team2_score && <span className="badge bg-light text-dark">{match.team2_score}</span>}
         </div>
 
-        {/* Winner line */}
+        {/* Winner / draw line */}
         {isCompleted && match.winner_name && (
           <div className="mt-1 pt-1 border-top">
             <small className="text-success fw-semibold">
               Winner: {match.winner_name}
             </small>
+          </div>
+        )}
+        {isCompleted && !match.winner && !isBye && (
+          <div className="mt-1 pt-1 border-top">
+            <small className="text-warning fw-semibold">Draw</small>
           </div>
         )}
       </div>

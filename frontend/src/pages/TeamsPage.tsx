@@ -69,7 +69,7 @@ export default function TeamsPage() {
 
   // Per-team add-member state: key = team id
   const [addMemberTeamId, setAddMemberTeamId] = useState<number | null>(null);
-  const [memberUserId, setMemberUserId] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<'captain' | 'member'>('member');
   const [addMemberBusy, setAddMemberBusy] = useState(false);
 
@@ -149,22 +149,22 @@ export default function TeamsPage() {
 
   function toggleAddMemberForm(teamId: number) {
     setAddMemberTeamId((prev) => (prev === teamId ? null : teamId));
-    setMemberUserId('');
+    setMemberEmail('');
     setMemberRole('member');
   }
 
   async function handleAddMember(teamId: number) {
-    const uid = parseInt(memberUserId, 10);
-    if (isNaN(uid) || uid <= 0) {
-      setAlert({ type: 'danger', text: 'Please enter a valid positive user ID.' });
+    const email = memberEmail.trim();
+    if (!email || !email.includes('@')) {
+      setAlert({ type: 'danger', text: 'Please enter the player\u2019s email address.' });
       return;
     }
     setAddMemberBusy(true);
     try {
-      await addMember(teamId, uid, memberRole);
+      await addMember(teamId, email, memberRole);
       setAlert({ type: 'success', text: 'Member added.' });
       setAddMemberTeamId(null);
-      setMemberUserId('');
+      setMemberEmail('');
       setMemberRole('member');
       await fetchTeams();
     } catch (err: unknown) {
@@ -379,18 +379,17 @@ export default function TeamsPage() {
                 <div className="border rounded p-3 bg-light">
                   <div className="row g-2 align-items-end">
                     <div className="col-auto">
-                      <label className="form-label small" htmlFor={`member-uid-${team.id}`}>
-                        User ID
+                      <label className="form-label small" htmlFor={`member-email-${team.id}`}>
+                        Player Email
                       </label>
                       <input
-                        id={`member-uid-${team.id}`}
-                        type="number"
+                        id={`member-email-${team.id}`}
+                        type="email"
                         className="form-control form-control-sm"
-                        value={memberUserId}
-                        onChange={(e) => setMemberUserId(e.target.value)}
-                        placeholder="1"
-                        min={1}
-                        style={{ width: 100 }}
+                        value={memberEmail}
+                        onChange={(e) => setMemberEmail(e.target.value)}
+                        placeholder="player@example.com"
+                        style={{ width: 220 }}
                       />
                     </div>
                     <div className="col-auto">

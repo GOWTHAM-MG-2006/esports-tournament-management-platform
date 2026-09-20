@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   getTournament,
   getTournamentMatches,
   openRegistration,
   closeRegistration,
+  startTournament,
+  deleteTournament,
+  updateTournament,
   registerTeam,
   listMyTeams,
   handleAxiosError,
@@ -14,7 +17,9 @@ import type {
   Match,
   TournamentStatus,
   TeamOption,
+  TournamentUpdatePayload,
 } from '../api/tournaments';
+import { useAuth } from '../context/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,13 +28,15 @@ import type {
 const STATUS_LABELS: Record<TournamentStatus, string> = {
   draft: 'Draft',
   registration_open: 'Registration Open',
+  registration_closed: 'Registration Closed',
   in_progress: 'In Progress',
-  completed: 'Completed',
+  completed: 'Ended',
 };
 
 const STATUS_BADGES: Record<TournamentStatus, string> = {
   draft: 'bg-secondary',
   registration_open: 'bg-primary',
+  registration_closed: 'bg-secondary',
   in_progress: 'bg-warning text-dark',
   completed: 'bg-success',
 };
@@ -47,11 +54,19 @@ const MATCH_STATUS_BADGES: Record<string, string> = {
 export default function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const tournamentId = Number(id);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManage = user?.role === 'organizer' || user?.role === 'admin';
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const canEdit =
+    canManage &&
+    (tournament?.status === 'draft' ||
+      tournament?.status === 'registration_open' ||
+      tournament?.status === 'registration_closed');
 
   // Action states
   const [actionLoading, setActionLoading] = useState(false);
@@ -65,6 +80,12 @@ export default function TournamentDetailPage() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+
+  // Edit form states (organizer/admin only)
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<TournamentUpdatePayload>({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // -----------------------------------------------------------------------
   // Data loading
@@ -129,6 +150,68 @@ export default function TournamentDetailPage() {
       setActionError(handleAxiosError(err));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleStartTournament = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await startTournament(tournamentId);
+      await loadData();
+    } catch (err) {
+      setActionError(handleAxiosError(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteTournament = async () => {
+    if (!window.confirm(`Delete tournament "${tournament?.name}"? This cannot be undone.`)) {
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await deleteTournament(tournamentId);
+      navigate('/tournaments');
+    } catch (err) {
+      setActionError(handleAxiosError(err));
+      setActionLoading(false);
+    }
+  };
+
+  // -----------------------------------------------------------------------
+  // Edit details (organizer/admin only; status excluded by design)
+  // -----------------------------------------------------------------------
+
+  const handleStartEdit = () => {
+    if (!tournament) return;
+    setEditForm({
+      name: tournament.name,
+      game: tournament.game,
+      max_teams: tournament.max_teams,
+      start_date: tournament.start_date,
+      end_date: tournament.end_date,
+      prize_pool: tournament.prize_pool,
+      rules: tournament.rules ?? '',
+    });
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      await updateTournament(tournamentId, editForm);
+      setEditing(false);
+      await loadData();
+    } catch (err) {
+      setEditError(handleAxiosError(err));
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -256,34 +339,227 @@ export default function TournamentDetailPage() {
         <div className="alert alert-danger py-2">{actionError}</div>
       )}
 
-      {/* Status action buttons */}
-      <div className="d-flex gap-2 mb-4 flex-wrap">
-        {tournament.status === 'draft' && (
-          <button
-            className="btn btn-primary"
-            disabled={actionLoading}
-            onClick={handleOpenRegistration}
-          >
-            {actionLoading ? (
-              <span className="spinner-border spinner-border-sm me-1" />
-            ) : null}
-            Open Registration
-          </button>
-        )}
+      {/* Status action buttons (organizer/admin only) */}
+      {canManage && (
+        <div className="d-flex gap-2 mb-4 flex-wrap align-items-center">
+          {(tournament.status === 'draft' ||
+            tournament.status === 'registration_closed') && (
+            <button
+              className="btn btn-primary"
+              disabled={actionLoading}
+              onClick={handleOpenRegistration}
+            >
+              {actionLoading ? (
+                <span className="spinner-border spinner-border-sm me-1" />
+              ) : null}
+              {tournament.status === 'draft'
+                ? 'Open Registration'
+                : 'Reopen Registration'}
+            </button>
+          )}
 
-        {tournament.status === 'registration_open' && (
-          <button
-            className="btn btn-warning"
-            disabled={actionLoading}
-            onClick={handleCloseRegistration}
-          >
-            {actionLoading ? (
-              <span className="spinner-border spinner-border-sm me-1" />
-            ) : null}
-            Close Registration
-          </button>
-        )}
-      </div>
+          {(tournament.status === 'registration_open' ||
+            tournament.status === 'draft') && (
+            <button
+              className="btn btn-warning"
+              disabled={actionLoading}
+              onClick={handleCloseRegistration}
+            >
+              {actionLoading ? (
+                <span className="spinner-border spinner-border-sm me-1" />
+              ) : null}
+              Close Registration
+            </button>
+          )}
+
+          {tournament.status === 'registration_closed' && (
+            <button
+              className="btn btn-success"
+              disabled={actionLoading}
+              onClick={handleStartTournament}
+            >
+              {actionLoading ? (
+                <span className="spinner-border spinner-border-sm me-1" />
+              ) : null}
+              Start Tournament
+            </button>
+          )}
+
+          {tournament.status !== 'in_progress' ? (
+            <button
+              className="btn btn-outline-danger"
+              disabled={actionLoading}
+              onClick={handleDeleteTournament}
+            >
+              Delete Tournament
+            </button>
+          ) : (
+            <span className="text-muted small">
+              Tournaments in progress cannot be deleted.
+            </span>
+          )}
+
+          {canEdit && (
+            <button
+              className="btn btn-outline-secondary"
+              disabled={actionLoading}
+              onClick={handleStartEdit}
+            >
+              Edit Details
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Edit form (organizer/admin only, pre-start only; status excluded by design) */}
+      {canEdit && editing && (
+        <div className="card mb-4">
+          <div className="card-body">
+            <h5 className="card-title">Edit Tournament Details</h5>
+
+            {editError && (
+              <div className="alert alert-danger py-2">{editError}</div>
+            )}
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="edit-name">
+                    Name
+                  </label>
+                  <input
+                    id="edit-name"
+                    className="form-control"
+                    value={editForm.name ?? ''}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="edit-game">
+                    Game
+                  </label>
+                  <input
+                    id="edit-game"
+                    className="form-control"
+                    value={editForm.game ?? ''}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, game: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="edit-max-teams">
+                    Max Teams
+                  </label>
+                  <input
+                    id="edit-max-teams"
+                    type="number"
+                    min={2}
+                    className="form-control"
+                    value={editForm.max_teams ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        max_teams: Number(e.target.value),
+                      })
+                    }
+                    required
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="edit-start">
+                    Start Date
+                  </label>
+                  <input
+                    id="edit-start"
+                    type="date"
+                    className="form-control"
+                    value={editForm.start_date ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        start_date: e.target.value || null,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="edit-end">
+                    End Date
+                  </label>
+                  <input
+                    id="edit-end"
+                    type="date"
+                    className="form-control"
+                    value={editForm.end_date ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        end_date: e.target.value || null,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="edit-prize">
+                    Prize Pool
+                  </label>
+                  <input
+                    id="edit-prize"
+                    className="form-control"
+                    value={editForm.prize_pool ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        prize_pool: e.target.value || null,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="form-label" htmlFor="edit-rules">
+                    Rules
+                  </label>
+                  <textarea
+                    id="edit-rules"
+                    className="form-control"
+                    rows={3}
+                    value={editForm.rules ?? ''}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, rules: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex gap-2 mt-3">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editLoading}
+                >
+                  {editLoading ? (
+                    <span className="spinner-border spinner-border-sm me-1" />
+                  ) : null}
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={editLoading}
+                  onClick={() => setEditing(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Register Team Section */}
       {tournament.status === 'registration_open' && (
@@ -382,7 +658,13 @@ export default function TournamentDetailPage() {
                       ? `${m.team1_score} - ${m.team2_score}`
                       : '—'}
                   </td>
-                  <td>{m.winner_name ?? '—'}</td>
+                  <td>
+                    {m.status === 'completed' && !m.winner ? (
+                      <span className="badge bg-warning text-dark">Draw</span>
+                    ) : (
+                      m.winner_name ?? '—'
+                    )}
+                  </td>
                   <td>
                     <span
                       className={`badge ${
