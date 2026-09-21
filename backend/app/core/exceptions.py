@@ -1,4 +1,8 @@
+import logging
+
 from rest_framework.views import exception_handler
+
+logger = logging.getLogger(__name__)
 
 
 def custom_exception_handler(exc, context):
@@ -36,5 +40,8 @@ def custom_exception_handler(exc, context):
             'data': None,
             'message': message,
         }
+        view = context.get('view')
+        view_name = getattr(view, '__class__', type(view)).__name__ if view else 'unknown'
+        logger.warning('API error in %s: %s', view_name, message)
 
     return response

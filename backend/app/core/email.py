@@ -29,3 +29,15 @@ def notify_result_posted(to_email, match_label, winner_name):
         recipient_list=[to_email],
         fail_silently=True,
     )
+
+
+def notify_registration_confirmed(to_email, tournament_name, team_name):
+    if not to_email:
+        return
+    send_mail(
+        subject=f'Registration confirmed: {tournament_name}',
+        message=f'Team {team_name} is registered for {tournament_name}. Good luck!',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[to_email],
+        fail_silently=True,
+    )

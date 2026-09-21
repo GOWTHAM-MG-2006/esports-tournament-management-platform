@@ -1,11 +1,11 @@
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from users.models import User
 
 from teams.models import Team, TeamMember
-from teams.serializers import TeamSerializer, TeamMemberSerializer, AddMemberSerializer
-from users.models import User
+from teams.serializers import AddMemberSerializer, TeamMemberSerializer, TeamSerializer
 
 
 class TeamViewSet(viewsets.ModelViewSet):

@@ -1,10 +1,12 @@
+import logging
 import math
 
 from django.db import transaction
-from django.db.models import Q
+from tournaments.models import Registration
 
 from matches.models import Match
-from tournaments.models import Registration, Tournament
+
+logger = logging.getLogger(__name__)
 
 
 ROUND_LABELS = {
@@ -69,7 +71,6 @@ class BracketService:
 
         bracket_size = _next_power_of_2(team_count)
         num_rounds = int(math.log2(bracket_size))
-        num_byes = bracket_size - team_count
         seed_order = _generate_seed_order(bracket_size)
 
         # Place teams into seed slots (first approved registration = top seed).
@@ -122,6 +123,19 @@ class BracketService:
 
         tournament.status = 'in_progress'
         tournament.save()
+
+        # Notify each approved team's owner that matches are scheduled.
+        try:
+            from app.core.email import notify_match_scheduled
+            label = f'{tournament.name} bracket'
+            seen = set()
+            for team in approved_teams:
+                email = getattr(getattr(team, 'owner', None), 'email', None)
+                if email and email not in seen:
+                    seen.add(email)
+                    notify_match_scheduled(email, label)
+        except Exception:
+            logger.exception('Failed to send bracket-scheduled emails for tournament %s', tournament.id)
 
         return Match.objects.filter(tournament=tournament).order_by('round', 'position')
 
@@ -212,5 +226,17 @@ class BracketService:
         except Match.DoesNotExist:
             tournament.status = 'completed'
             tournament.save()
+
+        # Notify both teams' owners that the result is posted.
+        try:
+            from app.core.email import notify_result_posted
+            label = match.bracket_round_label or f'Round {match.round}'
+            result_name = 'Draw' if draw else winner.username
+            for team in (match.team1, match.team2):
+                email = getattr(getattr(team, 'owner', None), 'email', None)
+                if email:
+                    notify_result_posted(email, f'{tournament.name} {label}', result_name)
+        except Exception:
+            logger.exception('Failed to send result-posted emails for match %s', match.id)
 
         return match

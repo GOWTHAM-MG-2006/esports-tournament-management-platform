@@ -1,5 +1,4 @@
 from rest_framework import serializers
-
 from users.serializers import UserPublicSerializer
 
 from .models import Team, TeamMember

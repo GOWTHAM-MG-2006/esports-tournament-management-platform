@@ -1,7 +1,8 @@
-import os
+from datetime import timedelta
 from pathlib import Path
-from decouple import config
+
 import dj_database_url
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -121,7 +122,6 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@esports.local')
 
 # SimpleJWT
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -148,3 +148,19 @@ CORS_ALLOWED_ORIGINS += [
     o.strip() for o in config('CORS_EXTRA_ORIGINS', default='').split(',') if o.strip()
 ]
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Logging — basic signup/login/error visibility (Review-II §9.6)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {'format': '[{levelname}] {asctime} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'default'},
+    },
+    'root': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO')},
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+    },
+}

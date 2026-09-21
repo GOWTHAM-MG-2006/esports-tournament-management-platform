@@ -1,11 +1,17 @@
+import logging
+
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
     @staticmethod
     def register(email, username, password):
         user = User.objects.create_user(email=email, username=username, password=password)
+        logger.info('User registered: %s', email)
         refresh = RefreshToken.for_user(user)
         return {
             'user': {'id': user.id, 'email': user.email, 'username': user.username, 'role': user.role},
@@ -20,7 +26,9 @@ class AuthService:
         from django.contrib.auth import authenticate
         user = authenticate(email=email, password=password)
         if not user:
+            logger.warning('Failed login attempt: %s', email)
             return None
+        logger.info('User logged in: %s', email)
         refresh = RefreshToken.for_user(user)
         return {
             'user': {'id': user.id, 'email': user.email, 'username': user.username, 'role': user.role},
