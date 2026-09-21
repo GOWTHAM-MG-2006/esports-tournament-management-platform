@@ -9,6 +9,8 @@ erDiagram
         varchar password
         varchar role
         boolean is_active
+        boolean is_staff
+        boolean is_superuser
         datetime date_joined
     }
     TEAM {
@@ -43,6 +45,7 @@ erDiagram
         bigint tournament_id FK
         bigint team_id FK
         varchar status
+        int seed
         datetime registered_at
     }
     MATCH {
@@ -69,10 +72,12 @@ erDiagram
     TOURNAMENT ||--o{ MATCH : has
     TEAM ||--o{ MATCH : team1
     TEAM ||--o{ MATCH : team2
-    USER ||--o{ MATCH : winner
+    TEAM ||--o{ MATCH : winner
 ```
 
 The database is composed of six entities. **users** are the base actor: they own teams, belong to teams as
-members, create tournaments, and can be recorded as a match winner. **teams** group members and register for
-tournaments. **tournaments** have a lifecycle and contain registrations as well as the matches generated for
-the bracket, where each match references two teams as team1/team2 and an optional winner.
+members, and create tournaments. **teams** group members and register for
+tournaments, each registration carrying an optional seed. **tournaments** have a lifecycle
+(`draft → registration_open → registration_closed → in_progress → completed`) and contain
+registrations as well as the matches generated for the bracket, where each match references two
+teams as team1/team2 and an optional winning team — a completed match with no winner is a Draw.

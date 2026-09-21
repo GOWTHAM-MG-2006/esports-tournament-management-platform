@@ -1,17 +1,30 @@
 # Esports Tournament Management Platform
 
 > Full-stack backend API for managing esports tournaments —
-  team registration, bracket generation, match scheduling, and live standings.
+> team registration, bracket generation, match scheduling, and live standings.
+
+## Live Deployment
+
+- Frontend (Vercel): https://esports-tournament-management-platf.vercel.app
+- Backend API (Render): https://esports-api-nr3v.onrender.com
+- Swagger docs: https://esports-api-nr3v.onrender.com/api/docs/
+- Health check: https://esports-api-nr3v.onrender.com/api/health/
 
 ## Tech Stack
-- Backend: Python 3.14, Django 5.1.15, Django REST Framework 3.15.2
+- Backend: Python 3.12, Django 5.1.15, Django REST Framework 3.15.2
 - Frontend: React 19, TypeScript, Vite, Bootstrap 5, React Router, Axios
-- Database: PostgreSQL 15
-- Auth: JWT (djangorestframework-simplejwt)
+- Database: PostgreSQL 15 (Railway in production, Docker locally)
+- Auth: JWT (djangorestframework-simplejwt, 30-min access / 7-day refresh, rotation + blacklist)
 - API Docs: drf-spectacular (Swagger UI)
+- Testing: pytest + pytest-django (76 tests, ~89% coverage / 90% on services), vitest + Testing Library (6 tests)
+- Lint: ruff (backend), oxlint (frontend)
+- CI/CD: GitHub Actions (backend + frontend + deploy jobs) → Render (backend) + Vercel (frontend)
+
+_Note: production pins `PYTHON_VERSION=3.12.4` on Render — Django 5.1's admin is
+incompatible with Python ≥ 3.13, so local development should also use Python 3.12._
 
 ## Prerequisites
-- Python 3.14+
+- Python 3.12
 - PostgreSQL 15 (or Docker)
 - pip
 
@@ -79,7 +92,6 @@ JWT authentication is handled through `/api/auth/register/` and `/api/auth/login
 | `/matches` | Matches | Yes |
 | `/brackets` | Brackets | Yes |
 | `/standings` | Standings | Yes |
-| `/health` | Backend health | Yes |
 | `/admin` | Admin (organizer/admin only) | Yes |
 
 Protected routes redirect to `/login` when unauthenticated.
@@ -95,13 +107,14 @@ Protected routes redirect to `/login` when unauthenticated.
 | GET | /api/auth/me/ | Get current user | Yes |
 | GET | /api/health/ | Backend + DB health check | No |
 | GET/POST | /api/teams/ | List/create teams | Yes |
-| GET/PUT/DELETE | /api/teams/{id}/ | Team detail | Yes |
-| POST | /api/teams/{id}/add-member/ | Add team member | Yes |
+| GET/PUT/PATCH/DELETE | /api/teams/{id}/ | Team detail | Yes |
+| POST | /api/teams/{id}/add-member/ | Add team member by user_id or email | Yes |
 | POST | /api/teams/{id}/remove-member/ | Remove team member | Yes |
 | GET/POST | /api/tournaments/ | List/create tournaments | Yes |
-| GET/PUT/DELETE | /api/tournaments/{id}/ | Tournament detail | Yes |
-| POST | /api/tournaments/{id}/open-registration/ | Open registration (organizer) | Yes |
+| GET/PUT/PATCH/DELETE | /api/tournaments/{id}/ | Tournament detail | Yes |
+| POST | /api/tournaments/{id}/open-registration/ | (Re)open registration (organizer) | Yes |
 | POST | /api/tournaments/{id}/close-registration/ | Close registration (organizer) | Yes |
+| POST | /api/tournaments/{id}/start-tournament/ | Move to in_progress (organizer) | Yes |
 | POST | /api/tournaments/{id}/register-team/ | Register team for tournament | Yes |
 | POST | /api/tournaments/{id}/seed/ | Set team seeds (organizer) | Yes |
 | GET | /api/tournaments/{id}/registrations/ | List tournament registrations | Yes |
@@ -113,12 +126,18 @@ Protected routes redirect to `/login` when unauthenticated.
 | POST | /api/matches/{id}/submit-result/ | Submit match result (organizer) | Yes |
 | GET | /api/docs/ | Swagger UI | No |
 
+Tournament lifecycle: `draft → registration_open → registration_closed → in_progress → completed`.
+Direct `status` edits via PUT/PATCH are rejected (use the lifecycle actions); in-progress
+tournaments cannot be deleted or edited. Equal numeric scores are recorded as a Draw
+(completed match, no winner); negative scores and loser-outscoring-winner are rejected.
+
 ## Running Tests
 
-Backend (51 tests, pytest + pytest-django):
+Backend (76 tests, pytest + pytest-django, ~89% coverage / 90% on services):
 ```
 pip install -r requirements-dev.txt
 pytest
+pytest --cov   # coverage report
 ```
 
 Frontend (vitest + Testing Library):
@@ -128,16 +147,23 @@ npm ci
 npm test -- --run
 ```
 
+Lint:
+```
+ruff check backend/
+cd frontend && npm run lint
+```
+
 ## Deployment
 
 Manual cloud steps (cannot be automated from here):
 
 1. **Database (Railway):** create a PostgreSQL service, copy the `DATABASE_URL`.
 2. **Backend (Render):** new Web Service from this repo —
-   build: `pip install -r requirements.txt`,
-   start: `gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
+   build: `pip install -r requirements.txt && python backend/manage.py collectstatic --noinput`,
+   start: `python backend/manage.py migrate && gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
    (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
-   `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`.
+   `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`,
+   `PYTHON_VERSION=3.12.4`.
 3. **Frontend (Vercel):** import `frontend/`, set
    `VITE_API_URL=https://<render-host>/api` (see `frontend/.env.production`).
 4. **CI deploy hooks:** add `RENDER_DEPLOY_HOOK` (vars) and `VERCEL_TOKEN`
@@ -153,6 +179,10 @@ Verify: `https://<render-host>/api/health/` → `{"status": "ok", ...}`,
   rewrite added no product value.
 - Frontend TypeScript (`.ts`/`.tsx`) is used instead of the spec's `.js`/`.jsx`
   file names; API and component structure match the spec one-to-one.
+- Logging: signup/login and API errors go through Django `LOGGING` (console,
+  level via `LOG_LEVEL`); email sending never fails a request (logged instead).
+- Email notifications (registration confirmations, bracket generation, results)
+  use `EMAIL_BACKEND` — console backend in dev, SMTP in production.
 
 ## License
 MIT
