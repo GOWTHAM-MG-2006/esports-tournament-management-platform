@@ -1,7 +1,8 @@
-from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 from teams.models import Team, TeamMember
-from tournaments.models import Tournament, Registration
+
+from tournaments.models import Registration, Tournament
 
 User = get_user_model()
 

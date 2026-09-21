@@ -1,5 +1,6 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from tournaments.views import TournamentViewSet
 
 app_name = 'tournaments'

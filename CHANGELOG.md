@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## [QA Batch] — 2026-09-20
+### Added
+- Email notifications wired: registration confirmations, bracket generation,
+  and result submission (console backend in dev, SMTP in prod)
+- Request logging (signup/login, API errors) via Django `LOGGING`
+- Ruff backend lint (`pyproject.toml`) + CI lint step; service test coverage 90%
+- Tournament lifecycle: `registration_closed` status, open/close toggles,
+  `start-tournament`, organizer delete guard, edit-details form (hidden once started)
+- Email-based team member invites (`add-member` accepts `email`)
+- Score validation: negatives rejected, winner must outscore loser,
+  equal scores recorded as Draw
+- Tests: 76 passed (was 51); frontend 6 passed
+
 ## [Day 41] — 2026-09-06
 ### Added
 - Review-II preparation: deploy configs (`Procfile`, gunicorn, `STATIC_ROOT`,

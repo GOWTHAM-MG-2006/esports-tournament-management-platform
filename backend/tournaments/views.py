@@ -1,11 +1,12 @@
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
-from tournaments.models import Tournament, Registration
-from tournaments.serializers import TournamentSerializer, RegistrationSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from users.permissions import IsOrganizer
+
+from tournaments.models import Registration, Tournament
+from tournaments.serializers import RegistrationSerializer, TournamentSerializer
 
 
 class TournamentViewSet(viewsets.ModelViewSet):
@@ -97,6 +98,14 @@ class TournamentViewSet(viewsets.ModelViewSet):
         if tournament.registrations.count() >= tournament.max_teams:
             return Response({'message': 'Tournament is full'}, status=status.HTTP_400_BAD_REQUEST)
         reg = Registration.objects.create(tournament=tournament, team=team, status='approved')
+        try:
+            from app.core.email import notify_registration_confirmed
+            notify_registration_confirmed(team.owner.email, tournament.name, team.name)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                'Failed to send registration email for team %s', team.id
+            )
         return Response(RegistrationSerializer(reg).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='seed')

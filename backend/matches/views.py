@@ -2,12 +2,12 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from tournaments.models import Tournament
+from users.permissions import IsOrganizer
 
 from matches.models import Match
 from matches.serializers import MatchSerializer, SubmitResultSerializer
 from matches.services import BracketService
-from tournaments.models import Tournament
-from users.permissions import IsOrganizer
 
 
 class MatchViewSet(viewsets.ReadOnlyModelViewSet):
