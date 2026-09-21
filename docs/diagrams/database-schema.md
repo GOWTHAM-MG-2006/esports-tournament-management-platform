@@ -8,6 +8,8 @@ Table users {
   password varchar [not null]
   role varchar [default: 'player']
   is_active boolean [default: true]
+  is_staff boolean [default: false]
+  is_superuser boolean [default: false]
   date_joined datetime [default: `now()`]
 }
 
@@ -31,7 +33,7 @@ Table tournaments {
   name varchar [not null]
   game varchar [not null]
   format varchar [not null]
-  status varchar [default: 'draft']
+  status varchar [default: 'draft', note: 'draft → registration_open → registration_closed → in_progress → completed']
   max_teams int [not null]
   start_date date [not null]
   end_date date [not null]
@@ -46,6 +48,7 @@ Table registrations {
   tournament_id bigint [not null, ref: > tournaments.id]
   team_id bigint [not null, ref: > teams.id]
   status varchar [default: 'pending']
+  seed int
   registered_at datetime [default: `now()`]
 }
 
@@ -58,7 +61,7 @@ Table matches {
   team2_id bigint [ref: > teams.id]
   winner_id bigint [ref: > teams.id]
   is_bye boolean [default: false]
-  status varchar [default: 'pending']
+  status varchar [default: 'scheduled']
   bracket_round_label varchar
   team1_score varchar
   team2_score varchar
