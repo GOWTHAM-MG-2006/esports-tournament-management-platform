@@ -74,3 +74,100 @@ class TestTournamentEndpoints:
         self.client.force_authenticate(user=player)
         response = self.client.post(f'{self.url}{t.id}/open-registration/')
         assert response.status_code == 403
+
+    def test_close_registration(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_open')
+        response = self.client.post(f'{self.url}{t.id}/close-registration/')
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.status == 'registration_closed'
+
+    def test_close_registration_from_draft(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        response = self.client.post(f'{self.url}{t.id}/close-registration/')
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.status == 'registration_closed'
+
+    def test_reopen_registration_from_closed(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_closed')
+        response = self.client.post(f'{self.url}{t.id}/open-registration/')
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.status == 'registration_open'
+
+    def test_cannot_open_registration_from_in_progress(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='in_progress')
+        response = self.client.post(f'{self.url}{t.id}/open-registration/')
+        assert response.status_code == 400
+
+    def test_cannot_open_registration_from_completed(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='completed')
+        response = self.client.post(f'{self.url}{t.id}/open-registration/')
+        assert response.status_code == 400
+
+    def test_cannot_close_registration_from_closed(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_closed')
+        response = self.client.post(f'{self.url}{t.id}/close-registration/')
+        assert response.status_code == 400
+
+    def test_cannot_close_registration_from_in_progress(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='in_progress')
+        response = self.client.post(f'{self.url}{t.id}/close-registration/')
+        assert response.status_code == 400
+
+    def test_start_tournament(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_closed')
+        response = self.client.post(f'{self.url}{t.id}/start-tournament/')
+        assert response.status_code == 200
+        t.refresh_from_db()
+        assert t.status == 'in_progress'
+
+    def test_start_tournament_from_draft(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        response = self.client.post(f'{self.url}{t.id}/start-tournament/')
+        assert response.status_code == 400
+
+    def test_start_tournament_from_open(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='registration_open')
+        response = self.client.post(f'{self.url}{t.id}/start-tournament/')
+        assert response.status_code == 400
+
+    def test_delete_tournament_organizer(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        response = self.client.delete(f'{self.url}{t.id}/')
+        assert response.status_code == 204
+
+    def test_player_cannot_delete_tournament(self):
+        player = User.objects.create_user(
+            email='p2@t.com', username='tplayer2', password='pass1234'
+        )
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        self.client.force_authenticate(user=player)
+        response = self.client.delete(f'{self.url}{t.id}/')
+        assert response.status_code == 403
+
+    def test_cannot_delete_in_progress(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='in_progress')
+        response = self.client.delete(f'{self.url}{t.id}/')
+        assert response.status_code == 400
+
+    def test_cannot_patch_status_directly(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        response = self.client.patch(f'{self.url}{t.id}/', {'status': 'completed'}, format='json')
+        assert response.status_code == 400
+
+    def test_organizer_can_patch_name(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org)
+        response = self.client.patch(f'{self.url}{t.id}/', {'name': 'Renamed'}, format='json')
+        assert response.status_code == 200
+
+    def test_cannot_patch_name_in_progress(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='in_progress')
+        response = self.client.patch(f'{self.url}{t.id}/', {'name': 'Renamed'}, format='json')
+        assert response.status_code == 400
+
+    def test_cannot_patch_name_completed(self):
+        t = Tournament.objects.create(name='T1', game='LoL', max_teams=8, created_by=self.org, status='completed')
+        response = self.client.patch(f'{self.url}{t.id}/', {'name': 'Renamed'}, format='json')
+        assert response.status_code == 400

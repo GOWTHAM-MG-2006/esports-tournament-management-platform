@@ -128,7 +128,7 @@ export default function BracketsPage() {
 
   // Derive current tournament status
   const selectedTournament = tournaments.find((t) => t.id === selectedId);
-  const canGenerate = selectedTournament?.status === 'registration_open';
+  const canGenerate = selectedTournament?.status === 'in_progress';
 
   return (
     <div>

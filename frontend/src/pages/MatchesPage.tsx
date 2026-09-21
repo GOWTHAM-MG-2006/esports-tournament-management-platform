@@ -55,10 +55,23 @@ function ResultForm({ match, onSuccess }: ResultFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Client-side guard (backend enforces too): numeric scores must be >= 0.
+    const parse = (v: string): number | null => {
+      if (v.trim() === '') return null;
+      const n = Number(v);
+      return Number.isInteger(n) ? n : null;
+    };
+    const s1 = parse(team1Score);
+    const s2 = parse(team2Score);
+    if ((s1 !== null && s1 < 0) || (s2 !== null && s2 < 0)) {
+      alert('Scores cannot be negative.');
+      return;
+    }
+    const isDraw = s1 !== null && s2 !== null && s1 === s2;
     setSubmitting(true);
     try {
       await submitResult(match.id, winner, team1Score, team2Score);
-      alert('Result submitted successfully!');
+      alert(isDraw ? 'Draw recorded!' : 'Result submitted successfully!');
       onSuccess();
     } catch (err: unknown) {
       const msg = handleAxiosError(err);
@@ -197,7 +210,13 @@ export default function MatchesPage() {
                       ? `${m.team1_score || '0'} - ${m.team2_score || '0'}`
                       : '—'}
                   </td>
-                  <td>{m.winner_name || '—'}</td>
+                  <td>
+                    {m.status === 'completed' && !m.winner ? (
+                      <span className="badge bg-warning text-dark">Draw</span>
+                    ) : (
+                      m.winner_name || '—'
+                    )}
+                  </td>
                   <td>
                     <span className={`badge bg-${statusBadge(m.status)}`}>
                       {m.status}

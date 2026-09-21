@@ -16,7 +16,7 @@ def setup_tournament(db):
     )
     tournament = Tournament.objects.create(
         name='Bracket Test', game='LoL', max_teams=8,
-        created_by=org, status='registration_open',
+        created_by=org, status='in_progress',
     )
     teams = []
     for i in range(8):
@@ -47,7 +47,7 @@ class TestBracketGeneration:
         )
         tournament = Tournament.objects.create(
             name='Bracket 4', game='LoL', max_teams=4,
-            created_by=org, status='registration_open',
+            created_by=org, status='in_progress',
         )
         for i in range(4):
             user = User.objects.create_user(
@@ -65,7 +65,7 @@ class TestBracketGeneration:
         )
         tournament = Tournament.objects.create(
             name='Bracket 5', game='LoL', max_teams=8,
-            created_by=org, status='registration_open',
+            created_by=org, status='in_progress',
         )
         for i in range(5):
             user = User.objects.create_user(
@@ -99,6 +99,95 @@ class TestBracketGeneration:
         other_team = Team.objects.create(name='Other', tag='OTH', owner=teams[0].owner)
         with pytest.raises(ValueError, match='Winner must be one of the match participants'):
             BracketService.submit_result(tournament, match.id, other_team.id)
+
+    @pytest.mark.django_db
+    def test_submit_result_winner_score_must_be_higher(self, setup_tournament):
+        tournament, teams, _ = setup_tournament
+        BracketService.generate_bracket(tournament)
+        match = Match.objects.filter(
+            tournament=tournament, round=1, status='scheduled'
+        ).exclude(team1__isnull=True).exclude(team2__isnull=True).first()
+        with pytest.raises(ValueError, match="Winner's score must be higher"):
+            BracketService.submit_result(
+                tournament, match.id, match.team2.id, '15', '10'
+            )
+
+    @pytest.mark.django_db
+    def test_submit_result_equal_scores_recorded_as_draw(self, setup_tournament):
+        tournament, teams, _ = setup_tournament
+        BracketService.generate_bracket(tournament)
+        match = Match.objects.filter(
+            tournament=tournament, round=1, status='scheduled'
+        ).exclude(team1__isnull=True).exclude(team2__isnull=True).first()
+        result = BracketService.submit_result(
+            tournament, match.id, match.team1.id, '10', '10'
+        )
+        assert result.status == 'completed'
+        assert result.winner is None
+        assert result.team1_score == '10'
+        assert result.team2_score == '10'
+        # Draw advances nobody: the next-round slot stays empty.
+        next_match = Match.objects.get(
+            tournament=tournament, round=2, position=match.position // 2
+        )
+        assert next_match.team1 is None
+        assert next_match.team2 is None
+        tournament.refresh_from_db()
+        assert tournament.status == 'in_progress'
+
+    @pytest.mark.django_db
+    def test_submit_result_negative_scores_rejected(self, setup_tournament):
+        tournament, teams, _ = setup_tournament
+        BracketService.generate_bracket(tournament)
+        match = Match.objects.filter(
+            tournament=tournament, round=1, status='scheduled'
+        ).exclude(team1__isnull=True).exclude(team2__isnull=True).first()
+        with pytest.raises(ValueError, match='Scores cannot be negative'):
+            BracketService.submit_result(
+                tournament, match.id, match.team1.id, '-100', '-120'
+            )
+        with pytest.raises(ValueError, match='Scores cannot be negative'):
+            BracketService.submit_result(
+                tournament, match.id, match.team1.id, '10', '-5'
+            )
+        match.refresh_from_db()
+        assert match.status == 'scheduled'
+
+    @pytest.mark.django_db
+    def test_submit_result_draw_in_final_completes_tournament(self, db):
+        org = User.objects.create_user(
+            email='org@draw.com', username='orgdraw', password='pass1234', role='organizer'
+        )
+        tournament = Tournament.objects.create(
+            name='Draw Final', game='LoL', max_teams=2,
+            created_by=org, status='in_progress',
+        )
+        for i in range(2):
+            user = User.objects.create_user(
+                email=f'd{i}@draw.com', username=f'draw{i}', password='pass1234', role='player'
+            )
+            team = Team.objects.create(name=f'DTeam{i}', tag=f'DT{i}', owner=user)
+            Registration.objects.create(tournament=tournament, team=team, status='approved')
+        BracketService.generate_bracket(tournament)
+        final = Match.objects.get(tournament=tournament, round=1)
+        result = BracketService.submit_result(
+            tournament, final.id, final.team1.id, '12', '12'
+        )
+        assert result.status == 'completed'
+        assert result.winner is None
+        tournament.refresh_from_db()
+        assert tournament.status == 'completed'
+
+    @pytest.mark.django_db
+    def test_submit_result_blank_scores_allowed(self, setup_tournament):
+        tournament, teams, _ = setup_tournament
+        BracketService.generate_bracket(tournament)
+        match = Match.objects.filter(
+            tournament=tournament, round=1, status='scheduled'
+        ).exclude(team1__isnull=True).exclude(team2__isnull=True).first()
+        result = BracketService.submit_result(tournament, match.id, match.team2.id)
+        assert result.status == 'completed'
+        assert result.winner == match.team2
 
     @pytest.mark.django_db
     def test_submit_result_already_completed(self, setup_tournament):

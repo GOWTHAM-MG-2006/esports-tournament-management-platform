@@ -85,7 +85,9 @@ export default function SeedingPage() {
     }
   }
 
-  const canSeed = tournament?.status === 'registration_open';
+  const canSeed =
+    tournament?.status === 'registration_open' ||
+    tournament?.status === 'registration_closed';
 
   if (loading && tournaments.length === 0) return <LoadingSpinner text="Loading tournaments…" />;
 
@@ -124,7 +126,7 @@ export default function SeedingPage() {
         <>
           {!canSeed && (
             <div className="alert alert-info">
-              Seeding can only be edited while registration is open (current status:{' '}
+              Seeding can only be edited while registration is open or closed (current status:{' '}
               <strong>{tournament.status}</strong>).
             </div>
           )}
