@@ -16,15 +16,15 @@
 - Database: PostgreSQL 15 (Railway in production, Docker locally)
 - Auth: JWT (djangorestframework-simplejwt, 30-min access / 7-day refresh, rotation + blacklist)
 - API Docs: drf-spectacular (Swagger UI)
-- Testing: pytest + pytest-django (76 tests, ~89% coverage / 90% on services), vitest + Testing Library (6 tests)
+- Testing: pytest + pytest-django (130 tests), vitest + Testing Library (6 tests)
 - Lint: ruff (backend), oxlint (frontend)
 - CI/CD: GitHub Actions (backend + frontend + deploy jobs) → Render (backend) + Vercel (frontend)
 
 _Note: production pins `PYTHON_VERSION=3.12.4` on Render — Django 5.1's admin is
-incompatible with Python ≥ 3.13, so local development should also use Python 3.12._
+incompatible with Python ≥ 3.13. Local development is verified on Python 3.14._
 
 ## Prerequisites
-- Python 3.12
+- Python 3.12+
 - PostgreSQL 15 (or Docker)
 - pip
 
@@ -75,7 +75,17 @@ npm run dev
 The dev server runs at http://localhost:5173. Vite proxies `/api` requests to `http://localhost:8000` (the Django backend), so relative `/api/*` URLs work in development. The backend must be running for the app to function.
 
 ### Auth
-JWT authentication is handled through `/api/auth/register/` and `/api/auth/login/`. The access token is stored in `localStorage` and attached to requests via an Axios interceptor. On a 401 response, the interceptor automatically attempts a token refresh through `/api/auth/refresh/`.
+Registration is verified by email OTP: `POST /api/auth/register/` creates an
+inactive account and emails a 6-digit code (10-minute expiry, 5 attempts max,
+SHA-256 hashed at rest); `POST /api/auth/verify-otp/` activates the account and
+returns JWT tokens, and `POST /api/auth/resend-otp/` issues a fresh code. Login
+is blocked with `403 email_unverified` until verification completes. Passwords
+must be strong (8+ chars with uppercase, lowercase, digit, and special char —
+enforced by Django validators on the backend and a live checklist on the
+Register page, which also has show/hide eye toggles on all password fields).
+The access token is stored in `localStorage` and attached to requests via an
+Axios interceptor. On a 401 response, the interceptor automatically attempts a
+token refresh through `/api/auth/refresh/`.
 
 ### Routes
 
@@ -84,6 +94,7 @@ JWT authentication is handled through `/api/auth/register/` and `/api/auth/login
 | `/` | Dashboard | Yes |
 | `/login` | Login | No |
 | `/register` | Register | No |
+| `/verify` | Email OTP verification | No |
 | `/teams` | Teams | Yes |
 | `/teams/:id` | Team Detail | Yes |
 | `/tournaments` | Tournaments | Yes |
@@ -92,7 +103,7 @@ JWT authentication is handled through `/api/auth/register/` and `/api/auth/login
 | `/matches` | Matches | Yes |
 | `/brackets` | Brackets | Yes |
 | `/standings` | Standings | Yes |
-| `/admin` | Admin (organizer/admin only) | Yes |
+| `/admin` | Admin command center (admin only) | Yes |
 
 Protected routes redirect to `/login` when unauthenticated.
 
@@ -100,8 +111,12 @@ Protected routes redirect to `/login` when unauthenticated.
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | /api/auth/register/ | Register new user | No |
-| POST | /api/auth/login/ | Login, get JWT tokens | No |
+| POST | /api/auth/register/ | Register (inactive until OTP verified) | No |
+| POST | /api/auth/verify-otp/ | Verify code, activate account, get JWT tokens | No |
+| POST | /api/auth/resend-otp/ | Send a fresh code (invalidates the old one) | No |
+| POST | /api/auth/login/ | Login, get JWT tokens (verified users only) | No |
+| GET | /api/auth/users/ | List users, `?search=` filter (admin) | Yes |
+| PATCH/DELETE | /api/auth/users/{id}/ | Change role / activate / delete user (admin) | Yes |
 | POST | /api/auth/refresh/ | Refresh access token | No |
 | POST | /api/auth/logout/ | Blacklist refresh token | Yes |
 | GET | /api/auth/me/ | Get current user | Yes |
@@ -111,6 +126,8 @@ Protected routes redirect to `/login` when unauthenticated.
 | POST | /api/teams/{id}/add-member/ | Add team member by user_id or email | Yes |
 | POST | /api/teams/{id}/remove-member/ | Remove team member | Yes |
 | GET/POST | /api/tournaments/ | List/create tournaments | Yes |
+| GET | /api/tournaments/browse/ | All tournaments except drafts (all roles) | Yes |
+| GET | /api/tournaments/my-tournaments/ | Tournaments created by me (organizer) | Yes |
 | GET/PUT/PATCH/DELETE | /api/tournaments/{id}/ | Tournament detail | Yes |
 | POST | /api/tournaments/{id}/open-registration/ | (Re)open registration (organizer) | Yes |
 | POST | /api/tournaments/{id}/close-registration/ | Close registration (organizer) | Yes |
@@ -128,12 +145,16 @@ Protected routes redirect to `/login` when unauthenticated.
 
 Tournament lifecycle: `draft → registration_open → registration_closed → in_progress → completed`.
 Direct `status` edits via PUT/PATCH are rejected (use the lifecycle actions); in-progress
-tournaments cannot be deleted or edited. Equal numeric scores are recorded as a Draw
+tournaments cannot be deleted or edited. `end_date` cannot be before `start_date`
+(enforced on create and partial update). Equal numeric scores are recorded as a Draw
 (completed match, no winner); negative scores and loser-outscoring-winner are rejected.
+Admins bypass ownership checks (can edit/delete/run lifecycle actions on any
+tournament or team); user roles are player/organizer/admin and only admins can
+change roles or deactivate/delete accounts, never their own.
 
 ## Running Tests
 
-Backend (76 tests, pytest + pytest-django, ~89% coverage / 90% on services):
+Backend (130 tests, pytest + pytest-django):
 ```
 pip install -r requirements-dev.txt
 pytest
@@ -161,9 +182,11 @@ Manual cloud steps (cannot be automated from here):
 2. **Backend (Render):** new Web Service from this repo —
    build: `pip install -r requirements.txt && python backend/manage.py collectstatic --noinput`,
    start: `python backend/manage.py migrate && gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
-   (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
-   `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`,
-   `PYTHON_VERSION=3.12.4`.
+    (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
+    `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`,
+    `PYTHON_VERSION=3.12.4`, plus `EMAIL_BACKEND=smtp` with `EMAIL_HOST`,
+    `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
+    (Gmail App Password) and `DEFAULT_FROM_EMAIL` for real OTP delivery.
 3. **Frontend (Vercel):** import `frontend/`, set
    `VITE_API_URL=https://<render-host>/api` (see `frontend/.env.production`).
 4. **CI deploy hooks:** add `RENDER_DEPLOY_HOOK` (vars) and `VERCEL_TOKEN`
@@ -181,8 +204,13 @@ Verify: `https://<render-host>/api/health/` → `{"status": "ok", ...}`,
   file names; API and component structure match the spec one-to-one.
 - Logging: signup/login and API errors go through Django `LOGGING` (console,
   level via `LOG_LEVEL`); email sending never fails a request (logged instead).
-- Email notifications (registration confirmations, bracket generation, results)
-  use `EMAIL_BACKEND` — console backend in dev, SMTP in production.
+- Email (OTP codes, registration confirmations, bracket generation, results)
+  uses `EMAIL_BACKEND` — console backend in dev, Gmail SMTP in production via
+  `backend/.env` (see `backend/.env.example`; App Password required).
+- Admin command center (`/admin`, admin role only): dark-sidebar UI for user
+  management (search, role changes, activate/deactivate/delete), full
+  tournament/team tables with delete, and a match overview — no Django admin
+  needed for day-to-day administration.
 
 ## License
 MIT

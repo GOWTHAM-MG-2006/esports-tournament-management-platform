@@ -1,32 +1,41 @@
-# React + TypeScript + Vite
+# Frontend — Esports Tournament Management Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + TypeScript + Vite + Bootstrap 5 SPA. Axios talks to the Django API
+under `/api` (Vite proxies `/api` to `http://localhost:8000` in dev, or set
+`VITE_API_URL`; see `.env.example`).
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Dev server at http://localhost:5173 |
+| `npm run build` | Type-check (`tsc -b`) + production build |
+| `npm test -- --run` | vitest + Testing Library (6 tests) |
+| `npm run lint` | oxlint |
 
-## React Compiler
+## Auth flow
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Register → 6-digit email OTP on the `/verify` page → auto-login. Login is
+blocked (`403 email_unverified`, redirected to `/verify`) until the code is
+confirmed. Passwords must be strong (8+ chars: upper, lower, digit, special);
+the Register page shows a live checklist and eye toggles on password fields.
+Tokens live in `localStorage`; a 401 triggers a refresh via `/api/auth/refresh/`.
 
-## Expanding the Oxlint configuration
+## Routes
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+| Path | Page | Who |
+|---|---|---|
+| `/` | Dashboard | any user |
+| `/login`, `/register`, `/verify` | Auth | public |
+| `/teams`, `/teams/:id` | Teams | any user |
+| `/tournaments` | My Tournaments + All Tournaments tabs (organizer/admin); browse-only All Tournaments for players | any user |
+| `/tournaments/:id`, `/tournaments/:id/seeding` | Detail, seeding | any user |
+| `/matches`, `/brackets`, `/standings` | Matches, brackets, standings | any user |
+| `/admin` | Admin command center (dark sidebar: Overview/Users/Tournaments/Teams/Matches) | admin only |
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+## API layer
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`src/api/` holds one typed module per domain (`auth`, `users`, `teams`,
+`tournaments`, `matches`) over a shared Axios client with an auth interceptor.
+Backend responses arrive in an envelope (`{success, data, message}`) unwrapped
+by per-module helpers.

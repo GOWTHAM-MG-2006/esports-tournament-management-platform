@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [Update] — 2026-09-22
+### Added
+- Email OTP verification: register creates an inactive account, 6-digit code
+  (10-min expiry, 5 attempts, SHA-256 hashed) via `verify-otp`/`resend-otp`;
+  login blocked with `403 email_unverified` until verified; `/verify` page
+- Strong passwords enforced (upper/lower/digit/special, 8+ chars) with a live
+  checklist and show/hide eye toggles on auth password fields
+- `GET /api/tournaments/browse/` (all statuses except draft, all roles) powering
+  the "All Tournaments" section; "My Tournaments"/"All Tournaments" tabs for
+  organizers, browse-only view for players
+- Admin command center (`/admin`): user management API (`GET /api/auth/users/`,
+  `PATCH`/`DELETE /api/auth/users/{id}/`, roles player/organizer/admin, no
+  self-demote/deactivate/delete); admin ownership bypass for tournaments/teams
+- Tournament date validation: `end_date` cannot precede `start_date`
+- Gmail SMTP wiring (`backend/.env` + `.env.example`, App Password)
+- Tests: 130 passed (was 76); frontend 6 passed
+
 ## [QA Batch] — 2026-09-20
 ### Added
 - Email notifications wired: registration confirmations, bracket generation,
