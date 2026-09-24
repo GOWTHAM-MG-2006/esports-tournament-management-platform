@@ -111,6 +111,14 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'app.core.exceptions.custom_exception_handler',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '100/minute',
+    },
 }
 
 # Email — console backend in dev, SMTP in prod via env (Phase 1 stub)
