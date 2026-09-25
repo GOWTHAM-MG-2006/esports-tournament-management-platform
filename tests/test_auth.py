@@ -2,11 +2,10 @@ import re
 
 import pytest
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 from users.models import EmailOTP, User
-
 
 LOCMEM_EMAIL = {'EMAIL_BACKEND': 'django.core.mail.backends.locmem.EmailBackend'}
 
@@ -337,3 +336,10 @@ class TestAuthEndpoints:
         }
         response = self.client.post(self.register_url, data)
         assert response.status_code == 400
+
+    @pytest.mark.throttle
+    def test_login_throttled_after_burst(self):
+        for _ in range(30):
+            self.client.post(self.login_url, {'email': 'x@x.com', 'password': 'wrong'})
+        response = self.client.post(self.login_url, {'email': 'x@x.com', 'password': 'wrong'})
+        assert response.status_code == 429
