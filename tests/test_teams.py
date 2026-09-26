@@ -1,6 +1,5 @@
 import pytest
 from rest_framework.test import APIClient
-
 from teams.models import Team, TeamJoinRequest, TeamMember
 from users.models import User
 

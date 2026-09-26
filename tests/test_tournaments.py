@@ -1,8 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from tournaments.models import Tournament, Registration
 from teams.models import Team, TeamMember
+from tournaments.models import Registration, Tournament
 
 User = get_user_model()
 

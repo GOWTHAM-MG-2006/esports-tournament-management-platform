@@ -1,8 +1,8 @@
 import pytest
-from django.core.management import call_command
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from teams.models import Team, TeamMember
-from tournaments.models import Tournament, Registration
+from tournaments.models import Registration, Tournament
 
 User = get_user_model()
 

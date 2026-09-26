@@ -1,12 +1,9 @@
 import pytest
-
-from rest_framework.test import APIClient
-
-from users.models import User
+from matches.models import Match
+from matches.services import BracketService
 from teams.models import Team
 from tournaments.models import Registration, Tournament
-from matches.models import Match
-from matches.services import BracketService, _generate_seed_order, _next_power_of_2
+from users.models import User
 
 
 @pytest.fixture
