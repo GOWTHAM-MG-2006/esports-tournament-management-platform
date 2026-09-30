@@ -148,6 +148,11 @@ class UserManageView(APIView):
         serializer = UserAdminSerializer(target, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        from users.services import log_action
+        if 'role' in request.data:
+            log_action(request.user, 'user.role_change', object_id=target.id)
+        elif 'is_active' in request.data:
+            log_action(request.user, 'user.status_change', object_id=target.id)
         return Response(serializer.data)
 
     def delete(self, request, pk):
@@ -165,7 +170,10 @@ class UserManageView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         email = target.email
+        target_id = target.id
         target.delete()
+        from users.services import log_action
+        log_action(request.user, 'user.delete', object_id=target_id, detail=email)
         # 200 (not 204): the envelope renderer attaches a JSON body, and
         # browsers reject body-bearing 204 responses as a "Network Error".
         return Response({'message': f'User {email} deleted.'})

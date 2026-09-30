@@ -74,6 +74,8 @@ class TournamentViewSet(viewsets.ModelViewSet):
         self.check_ownership(instance)
         if instance.status == 'in_progress':
             raise ValidationError('Cannot delete a tournament in progress')
+        from users.services import log_action
+        log_action(self.request.user, 'tournament.delete', object_id=instance.id)
         instance.delete()
 
     @action(detail=True, methods=['post'], url_path='open-registration')
