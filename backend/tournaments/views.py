@@ -16,7 +16,7 @@ class TournamentViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('open_registration', 'close_registration',
-                            'start_tournament', 'seed', 'create', 'update',
+                            'start_tournament', 'seed', 'smart_seed', 'create', 'update',
                             'partial_update', 'destroy'):
             return [IsOrganizer()]
         return [IsAuthenticated()]
@@ -162,6 +162,20 @@ class TournamentViewSet(viewsets.ModelViewSet):
             reg.save()
             updated.append(reg)
         return Response(RegistrationSerializer(updated, many=True).data)
+
+    @action(detail=True, methods=['post'], url_path='smart-seed')
+    def smart_seed(self, request, pk=None):
+        tournament = self.get_object()
+        self.check_ownership(tournament)
+        if tournament.status not in ('registration_open', 'registration_closed'):
+            return Response({'message': 'Can only seed while registration is open or closed'}, status=status.HTTP_400_BAD_REQUEST)
+        from predictions.services import team_win_rate
+        regs = list(tournament.registrations.all())
+        regs.sort(key=lambda reg: team_win_rate(reg.team_id), reverse=True)
+        for seed, reg in enumerate(regs, start=1):
+            reg.seed = seed
+            reg.save()
+        return Response(RegistrationSerializer(regs, many=True).data)
 
     @action(detail=False, methods=['get'], url_path='my-tournaments')
     def my_tournaments(self, request):
