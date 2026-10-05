@@ -9,6 +9,8 @@ import {
   type Registration,
   type Tournament,
 } from '../api/tournaments';
+import { smartSeed } from '../api/matches';
+import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // ---------------------------------------------------------------------------
@@ -17,6 +19,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 // ---------------------------------------------------------------------------
 
 export default function SeedingPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === 'organizer' || user?.role === 'admin';
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -24,6 +28,7 @@ export default function SeedingPage() {
   const [seedInputs, setSeedInputs] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [smartSeeding, setSmartSeeding] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'danger' | 'info'; text: string } | null>(null);
 
   useEffect(() => {
@@ -82,6 +87,26 @@ export default function SeedingPage() {
       setAlert({ type: 'danger', text: handleAxiosError(err) });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSmartSeed() {
+    if (selectedId === null) return;
+    setSmartSeeding(true);
+    try {
+      const updated = await smartSeed(selectedId);
+      setRegs(updated);
+      const inputs: Record<number, string> = {};
+      for (const reg of updated) inputs[reg.id] = reg.seed?.toString() ?? '';
+      setSeedInputs(inputs);
+      setAlert({
+        type: 'success',
+        text: 'Smart seeding applied: teams ordered strongest-first by win rate.',
+      });
+    } catch (err: unknown) {
+      setAlert({ type: 'danger', text: handleAxiosError(err) });
+    } finally {
+      setSmartSeeding(false);
     }
   }
 
@@ -167,15 +192,36 @@ export default function SeedingPage() {
                 </tbody>
               </table>
               {canSeed && (
-                <button className="btn btn-primary" onClick={() => void handleSave()} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-1" /> Saving…
-                    </>
-                  ) : (
-                    'Save Seeds'
+                <div className="d-flex gap-2 flex-wrap">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => void handleSave()}
+                    disabled={saving || smartSeeding}
+                  >
+                    {saving ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" /> Saving…
+                      </>
+                    ) : (
+                      'Save Seeds'
+                    )}
+                  </button>
+                  {canManage && (
+                    <button
+                      className="btn btn-outline-primary"
+                      onClick={() => void handleSmartSeed()}
+                      disabled={saving || smartSeeding}
+                    >
+                      {smartSeeding ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-1" /> Seeding…
+                        </>
+                      ) : (
+                        'Smart seed'
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
               )}
               <div className="mt-3">
                 <Link to="/brackets" className="btn btn-sm btn-outline-secondary">

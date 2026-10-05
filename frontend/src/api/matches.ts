@@ -1,5 +1,6 @@
 import api from './client';
 import type { ApiEnvelope } from './types';
+import type { Registration } from './tournaments';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,6 +23,12 @@ export interface Match {
   team1_score: string;
   team2_score: string;
   scheduled_at: string | null;
+}
+
+/** AI prediction for a match — which team is favored and how confident. */
+export interface Prediction {
+  predicted_winner_id: number;
+  confidence: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,4 +97,20 @@ export async function submitResult(
     },
   );
   return unwrap<Match>(res);
+}
+
+/** Get the AI prediction for a match (400 if teams are not decided yet). */
+export async function predictMatch(matchId: number): Promise<Prediction> {
+  const res = await api.get<ApiEnvelope<Prediction> | Prediction>(
+    `/predictions/match/${matchId}/`,
+  );
+  return unwrap<Prediction>(res);
+}
+
+/** Smart-seed a tournament: seeds registered teams 1..N strongest-first. */
+export async function smartSeed(tournamentId: number): Promise<Registration[]> {
+  const res = await api.post<ApiEnvelope<Registration[]> | Registration[]>(
+    `/tournaments/${tournamentId}/smart-seed/`,
+  );
+  return unwrapList<Registration>(res);
 }
