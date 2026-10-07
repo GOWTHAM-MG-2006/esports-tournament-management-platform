@@ -16,7 +16,7 @@
 - Database: PostgreSQL 15 (Railway in production, Docker locally)
 - Auth: JWT (djangorestframework-simplejwt, 30-min access / 7-day refresh, rotation + blacklist)
 - API Docs: drf-spectacular (Swagger UI)
-- Testing: pytest + pytest-django (130 tests), vitest + Testing Library (6 tests)
+- Testing: pytest + pytest-django (134 tests), vitest + Testing Library (6 tests)
 - Lint: ruff (backend), oxlint (frontend)
 - CI/CD: GitHub Actions (backend + frontend + deploy jobs) → Render (backend) + Vercel (frontend)
 
@@ -134,6 +134,7 @@ Protected routes redirect to `/login` when unauthenticated.
 | POST | /api/tournaments/{id}/start-tournament/ | Move to in_progress (organizer) | Yes |
 | POST | /api/tournaments/{id}/register-team/ | Register team for tournament | Yes |
 | POST | /api/tournaments/{id}/seed/ | Set team seeds (organizer) | Yes |
+| POST | /api/tournaments/{id}/smart-seed/ | Rank registrations strongest-first by win rate, assign seeds 1..N (organizer) | Yes |
 | GET | /api/tournaments/{id}/registrations/ | List tournament registrations | Yes |
 | GET | /api/tournaments/{id}/matches/ | Get tournament matches | Yes |
 | GET | /api/tournaments/{id}/bracket/ | Get bracket view | Yes |
@@ -141,6 +142,7 @@ Protected routes redirect to `/login` when unauthenticated.
 | GET | /api/matches/{id}/ | Match detail | Yes |
 | POST | /api/matches/generate-bracket/{tournament_id}/ | Generate bracket (organizer) | Yes |
 | POST | /api/matches/{id}/submit-result/ | Submit match result (organizer) | Yes |
+| GET | /api/predictions/match/{id}/ | AI predicted winner + confidence for a decided match (400 if teams undecided) | Yes |
 | GET | /api/docs/ | Swagger UI | No |
 
 Tournament lifecycle: `draft → registration_open → registration_closed → in_progress → completed`.
@@ -152,9 +154,29 @@ Admins bypass ownership checks (can edit/delete/run lifecycle actions on any
 tournament or team); user roles are player/organizer/admin and only admins can
 change roles or deactivate/delete accounts, never their own.
 
+AI predictor + smart seeding (Phase 3 enhancement, see
+`docs/Enhancement_Proposal.md`): `GET /api/predictions/match/{id}/` responds
+with `predicted_winner_id` and `confidence`, scored on demand by a scikit-learn
+`LogisticRegression` over `[win_rate_diff, seed_diff]` computed from completed
+matches — no model files are stored in the repo. `POST
+/api/tournaments/{id}/smart-seed/` ranks a tournament's registrations
+strongest-first by win rate and assigns seeds 1..N (organizer only, only while
+registration is open or closed). In the UI, the Seeding page
+(`/tournaments/:id/seeding`) shows a "Smart seed" button for organizers/admins,
+and each decided, unplayed match on the Tournament Detail page
+(`/tournaments/:id`) shows an "AI pick: \<team\> (x%)" line.
+
+Security hardening: anonymous requests are throttled at 20/min and
+authenticated requests at 100/min (HTTP 429 beyond that);
+`SECURE_CONTENT_TYPE_NOSNIFF`, `X-Frame-Options: DENY`, and
+`CORS_ALLOW_ALL_ORIGINS = False` (explicit origins only). Key actions are
+written to the `audit_logs` table (`user.register`, `auth.login_failed`,
+`user.role_change`, `user.status_change`, `user.delete`, `tournament.delete`,
+`team.delete`).
+
 ## Running Tests
 
-Backend (130 tests, pytest + pytest-django):
+Backend (134 tests, pytest + pytest-django):
 ```
 pip install -r requirements-dev.txt
 pytest
