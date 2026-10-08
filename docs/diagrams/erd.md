@@ -84,6 +84,14 @@ erDiagram
         varchar team2_score
         datetime scheduled_at
     }
+    AUDITLOG {
+        bigint id PK
+        bigint actor_id FK
+        varchar action
+        varchar object_id
+        text detail
+        datetime created_at
+    }
     USER ||--o{ TEAM : owns
     USER ||--o{ EMAILOTP : verifies
     USER ||--o{ TEAMMEMBER : belongs_to
@@ -97,9 +105,10 @@ erDiagram
     TEAM ||--o{ MATCH : team1
     TEAM ||--o{ MATCH : team2
     TEAM ||--o{ MATCH : winner
+    USER ||--o{ AUDITLOG : acts
 ```
 
-The database is composed of eight entities. **users** are the base actor: they own teams, belong to teams as
+The database is composed of nine entities. **users** are the base actor: they own teams, belong to teams as
 members, create tournaments, receive email OTP codes, and are invited to teams. **teams** group members and register for
 tournaments, each registration carrying an optional seed; membership and email invites live in
 **team_members** and **team_join_requests**. **email_otps** stores SHA-256-hashed verification codes
@@ -107,3 +116,6 @@ with expiry, attempt count, and used flag. **tournaments** have a lifecycle
 (`draft → registration_open → registration_closed → in_progress → completed`) and contain
 registrations as well as the matches generated for the bracket, where each match references two
 teams as team1/team2 and an optional winning team — a completed match with no winner is a Draw.
+Key auth/admin actions (`user.register`, `auth.login_failed`, `user.role_change`,
+`user.status_change`, `user.delete`, `tournament.delete`, `team.delete`) are recorded in
+**audit_logs**, each row pointing at the acting user.
