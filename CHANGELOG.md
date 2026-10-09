@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [Deploy] — 2026-10-10
+### Added
+- Live AWS deployment: single `t3.small` EC2 (`ap-south-1`) running
+  `docker-compose.yml` (Postgres 15 + gunicorn API + nginx SPA, same-origin
+  `/api` proxy) at http://52.66.246.97
+- Deploy files: `backend/Dockerfile`, `frontend/Dockerfile`,
+  `frontend/nginx.conf`, `docker-compose.yml`; `server.env` template in
+  `backend/.env.example` (secrets stay on the host, never committed)
+- README "Live Deployment" + "Deployment (AWS, single box)" rewritten for
+  the real setup; smoke-tested live (frontend 200, health db:ok,
+  register 201 with real Gmail OTP accepted, wrong-code 400)
+
 ## [Phase 3] — 2026-10-09
 ### Added
 - Enhancement proposal (`docs/Enhancement_Proposal.md`): AI win-rate predictor

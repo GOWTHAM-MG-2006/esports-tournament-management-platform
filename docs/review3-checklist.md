@@ -1,6 +1,6 @@
 # Review-III Demo Checklist + Final Validation (Day 60)
 
-Branch: `feat/phase3-finish` | Date: 2026-10-10 | Status: READY-FOR-PUSH (local only, no push performed)
+Branch: `feat/phase3-finish` | Date: 2026-10-10 | Status: MERGED + DEPLOYED (PR #32 merged to `main` 2026-10-10; live at http://52.66.246.97)
 
 Every demo step below was verified against the CURRENT app (`frontend/src/App.tsx`
 routes + the named pages). No step is assumed — each route/component was read before
@@ -45,14 +45,14 @@ Seeded demo accounts first (rollback note in §4), then walk this order:
 ## 4. Rollback note
 
 - Demo uses seeded accounts via `manage.py` (Django shell / seed command); if the demo data corrupts, re-run the seed to restore a known-good state.
-- Code rollback: everything for Phase 3 sits on branch `feat/phase3-finish`; the merge into `main` happens only via PR after user commands the push — until then `main` is untouched.
+- Code rollback: Phase 3 was built on branch `feat/phase3-finish` and merged into `main` via PR #32 (2026-10-10); pre-merge tip is tagged by the PR itself on GitHub if a rollback is ever needed.
 
 ## 5. Review-III process checklist (official §10.2–10.4)
 
 - [x] DONE — Enhancement_Proposal.md committed (`a7b53d9`, 2026-09-23)
 - [x] DONE (branch-local) — Feature built on `feat/phase3-finish`, tests green; PR opened only when user commands push
 - [x] DONE — ≥2 new unit tests for the enhancement (`tests/test_predictions.py`, exactly 2 — meets the 1–2 minimum)
-- [~] USER-ACTION — Enhancement deployed to the SAME live product (BLOCKED: needs your push command first, then redeploy backend+frontend hosts, smoke-test predict + smart-seed on live URL)
+- [x] DONE — Enhancement deployed to the SAME live product (AWS EC2 `t3.small` single-box Docker, 2026-10-10, http://52.66.246.97; smoke: frontend 200, `/api/health` db:ok, register 201 with real Gmail OTP accepted, wrong-code 400)
 - [x] DONE — Architecture diagram shows predictions component (Task 7, `docs/diagrams/`)
 - [x] DONE — README v3 final (Task 7)
 - [~] USER-ACTION — Demo video 2–4 min recorded and linked in README (BLOCKED: you record via phone/Loom; agent adds the link line to README only when you supply the URL — no commit until then)
