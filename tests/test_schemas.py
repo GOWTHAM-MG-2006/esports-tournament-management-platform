@@ -1,6 +1,4 @@
 import pytest
-from rest_framework.exceptions import ValidationError
-
 from users.models import User
 from users.serializers import UserPublicSerializer, UserRegisterSerializer
 

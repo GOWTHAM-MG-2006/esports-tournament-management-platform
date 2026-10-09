@@ -48,6 +48,11 @@ class TeamViewSet(viewsets.ModelViewSet):
         team = serializer.save(owner=self.request.user)
         TeamMember.objects.create(team=team, user=self.request.user, role='captain')
 
+    def perform_destroy(self, instance):
+        from users.services import log_action
+        log_action(self.request.user, 'team.delete', object_id=instance.id)
+        instance.delete()
+
     @action(detail=True, methods=['post'], url_path='add-member')
     def add_member(self, request, pk=None):
         team = self.get_object()

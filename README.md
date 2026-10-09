@@ -5,10 +5,11 @@
 
 ## Live Deployment
 
-- Frontend (Vercel): https://esports-tournament-management-platf.vercel.app
-- Backend API (Render): https://esports-api-nr3v.onrender.com
-- Swagger docs: https://esports-api-nr3v.onrender.com/api/docs/
-- Health check: https://esports-api-nr3v.onrender.com/api/health/
+Single-box Docker deployment on AWS EC2 (`t3.small`, Asia Pacific/Mumbai):
+
+- App: http://52.66.246.97
+- Swagger docs: http://52.66.246.97/api/docs/
+- Health check: http://52.66.246.97/api/health/
 
 ## Tech Stack
 - Backend: Python 3.12, Django 5.1.15, Django REST Framework 3.15.2
@@ -16,7 +17,7 @@
 - Database: PostgreSQL 15 (Railway in production, Docker locally)
 - Auth: JWT (djangorestframework-simplejwt, 30-min access / 7-day refresh, rotation + blacklist)
 - API Docs: drf-spectacular (Swagger UI)
-- Testing: pytest + pytest-django (130 tests), vitest + Testing Library (6 tests)
+- Testing: pytest + pytest-django (134 tests), vitest + Testing Library (6 tests)
 - Lint: ruff (backend), oxlint (frontend)
 - CI/CD: GitHub Actions (backend + frontend + deploy jobs) → Render (backend) + Vercel (frontend)
 
@@ -134,6 +135,7 @@ Protected routes redirect to `/login` when unauthenticated.
 | POST | /api/tournaments/{id}/start-tournament/ | Move to in_progress (organizer) | Yes |
 | POST | /api/tournaments/{id}/register-team/ | Register team for tournament | Yes |
 | POST | /api/tournaments/{id}/seed/ | Set team seeds (organizer) | Yes |
+| POST | /api/tournaments/{id}/smart-seed/ | Rank registrations strongest-first by win rate, assign seeds 1..N (organizer) | Yes |
 | GET | /api/tournaments/{id}/registrations/ | List tournament registrations | Yes |
 | GET | /api/tournaments/{id}/matches/ | Get tournament matches | Yes |
 | GET | /api/tournaments/{id}/bracket/ | Get bracket view | Yes |
@@ -141,6 +143,7 @@ Protected routes redirect to `/login` when unauthenticated.
 | GET | /api/matches/{id}/ | Match detail | Yes |
 | POST | /api/matches/generate-bracket/{tournament_id}/ | Generate bracket (organizer) | Yes |
 | POST | /api/matches/{id}/submit-result/ | Submit match result (organizer) | Yes |
+| GET | /api/predictions/match/{id}/ | AI predicted winner + confidence for a decided match (400 if teams undecided) | Yes |
 | GET | /api/docs/ | Swagger UI | No |
 
 Tournament lifecycle: `draft → registration_open → registration_closed → in_progress → completed`.
@@ -152,9 +155,29 @@ Admins bypass ownership checks (can edit/delete/run lifecycle actions on any
 tournament or team); user roles are player/organizer/admin and only admins can
 change roles or deactivate/delete accounts, never their own.
 
+AI predictor + smart seeding (Phase 3 enhancement, see
+`docs/Enhancement_Proposal.md`): `GET /api/predictions/match/{id}/` responds
+with `predicted_winner_id` and `confidence`, scored on demand by a scikit-learn
+`LogisticRegression` over `[win_rate_diff, seed_diff]` computed from completed
+matches — no model files are stored in the repo. `POST
+/api/tournaments/{id}/smart-seed/` ranks a tournament's registrations
+strongest-first by win rate and assigns seeds 1..N (organizer only, only while
+registration is open or closed). In the UI, the Seeding page
+(`/tournaments/:id/seeding`) shows a "Smart seed" button for organizers/admins,
+and each decided, unplayed match on the Tournament Detail page
+(`/tournaments/:id`) shows an "AI pick: \<team\> (x%)" line.
+
+Security hardening: anonymous requests are throttled at 20/min and
+authenticated requests at 100/min (HTTP 429 beyond that);
+`SECURE_CONTENT_TYPE_NOSNIFF`, `X-Frame-Options: DENY`, and
+`CORS_ALLOW_ALL_ORIGINS = False` (explicit origins only). Key actions are
+written to the `audit_logs` table (`user.register`, `auth.login_failed`,
+`user.role_change`, `user.status_change`, `user.delete`, `tournament.delete`,
+`team.delete`).
+
 ## Running Tests
 
-Backend (130 tests, pytest + pytest-django):
+Backend (134 tests, pytest + pytest-django):
 ```
 pip install -r requirements-dev.txt
 pytest
@@ -174,26 +197,40 @@ ruff check backend/
 cd frontend && npm run lint
 ```
 
-## Deployment
+## Deployment (AWS, single box)
 
-Manual cloud steps (cannot be automated from here):
+Everything (Postgres, API, SPA) runs as Docker Compose services on one
+`t3.small` EC2 instance (Amazon Linux 2023, `ap-south-1`, free-tier eligible).
+The browser talks same-origin `/api`, so no CORS configuration is needed.
 
-1. **Database (Railway):** create a PostgreSQL service, copy the `DATABASE_URL`.
-2. **Backend (Render):** new Web Service from this repo —
-   build: `pip install -r requirements.txt && python backend/manage.py collectstatic --noinput`,
-   start: `python backend/manage.py migrate && gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
-    (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
-    `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`,
-    `PYTHON_VERSION=3.12.4`, plus `EMAIL_BACKEND=smtp` with `EMAIL_HOST`,
-    `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
-    (Gmail App Password) and `DEFAULT_FROM_EMAIL` for real OTP delivery.
-3. **Frontend (Vercel):** import `frontend/`, set
-   `VITE_API_URL=https://<render-host>/api` (see `frontend/.env.production`).
-4. **CI deploy hooks:** add `RENDER_DEPLOY_HOOK` (vars) and `VERCEL_TOKEN`
-   (secrets) to GitHub so pushes to `main` redeploy.
+Files: `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`,
+`frontend/nginx.conf` (SPA + `/api/` proxy to the backend service).
 
-Verify: `https://<render-host>/api/health/` → `{"status": "ok", ...}`,
-`https://<render-host>/api/docs/` for Swagger.
+1. **Instance:** `t3.small`, Amazon Linux 2023 x86_64, security group
+   `capstone-stack` (22/80/443 inbound), 30 GB gp3, Docker + compose plugin.
+2. **Code:** `git clone <repo>` on the box (public repo, no credentials).
+3. **Secrets** (`server.env` next to `docker-compose.yml`, NEVER committed —
+   see `backend/.env.example` for the template):
+
+   | Variable | Value |
+   |---|---|
+   | `DB_PASSWORD` | strong Postgres password (also inside `DATABASE_URL`) |
+   | `SECRET_KEY` | long random string (`secrets.token_urlsafe(50)`) |
+   | `DEBUG` | `False` |
+   | `DATABASE_URL` | `postgres://esports:<DB_PASSWORD>@db:5432/esports_db` |
+   | `ALLOWED_HOSTS` | server public IP/DNS |
+   | `EMAIL_*` / `DEFAULT_FROM_EMAIL` | Gmail SMTP (App Password) for real OTP delivery |
+
+4. **Boot:** `docker compose up -d --build`, then
+   `docker compose run --rm backend python manage.py migrate`.
+5. **Redeploy:** `git pull && docker compose up -d --build && docker compose run --rm backend python manage.py migrate`.
+
+Verify: `http://<server-ip>/api/health/` → `{"status": "ok", ...}`,
+`http://<server-ip>/api/docs/` for Swagger.
+
+Known limits of this setup: plain HTTP (no TLS certificate yet), SSH open
+to the world (tighten to your IP when convenient), and Postgres backups are
+the Docker volume (snapshot it before anything drastic).
 
 ## Notes
 

@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [Phase 3] — 2026-10-09
+### Added
+- Enhancement proposal (`docs/Enhancement_Proposal.md`): AI win-rate predictor
+  + smart seeding as the Phase 3 specialization
+- Auth throttling: anonymous 20/min, authenticated 100/min (HTTP 429 past burst)
+- Security headers: `SECURE_CONTENT_TYPE_NOSNIFF`, `X-Frame-Options: DENY`,
+  `CORS_ALLOW_ALL_ORIGINS = False` (explicit origins only)
+- Audit log (`audit_logs` table): `user.register`, `auth.login_failed`,
+  `user.role_change`, `user.status_change`, `user.delete`,
+  `tournament.delete`, `team.delete`
+- Predictor backend (`predictions` app): `GET /api/predictions/match/{id}/`
+  → `predicted_winner_id` + `confidence` via scikit-learn
+  `LogisticRegression` on `[win_rate_diff, seed_diff]` (no model files in repo);
+  `POST /api/tournaments/{id}/smart-seed/` ranks registrations
+  strongest-first and assigns seeds 1..N
+- Predictor UI: "Smart seed" button on the Seeding page (organizer/admin
+  only); "AI pick" lines on the Tournament Detail match list
+- Tests: 134 passed (was 130); frontend 6 passed
+
 ## [Update] — 2026-09-22
 ### Added
 - Email OTP verification: register creates an inactive account, 6-digit code

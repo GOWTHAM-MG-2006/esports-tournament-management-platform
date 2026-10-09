@@ -30,6 +30,11 @@ def _tokens_for(user):
     }
 
 
+def log_action(actor, action, object_id='', detail=''):
+    from users.models import AuditLog
+    AuditLog.objects.create(actor=actor if getattr(actor, 'is_authenticated', False) else None, action=action, object_id=str(object_id), detail=detail)
+
+
 class AuthService:
     @staticmethod
     def register(email, username, password):
@@ -39,6 +44,7 @@ class AuthService:
         )
         logger.info('User registered (pending verification): %s', email)
         AuthService.issue_otp(user)
+        log_action(None, 'user.register', object_id=user.id, detail=email)
         return {
             'message': 'Account created. Please verify the 6-digit code sent to your email.',
             'email': user.email,
@@ -117,6 +123,7 @@ class AuthService:
                 logger.warning('Login blocked (unverified email): %s', email)
                 return {'unverified': True, 'email': candidate.email}
             logger.warning('Failed login attempt: %s', email)
+            log_action(None, 'auth.login_failed', detail=email)
             return None
         logger.info('User logged in: %s', email)
         return _tokens_for(user)

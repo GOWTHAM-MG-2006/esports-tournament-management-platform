@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getTournament,
@@ -19,6 +19,7 @@ import type {
   TeamOption,
   TournamentUpdatePayload,
 } from '../api/tournaments';
+import { predictMatch, type Prediction } from '../api/matches';
 import { useAuth } from '../context/AuthContext';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ export default function TournamentDetailPage() {
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [predictions, setPredictions] = useState<Record<number, Prediction>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canEdit =
@@ -113,6 +115,42 @@ export default function TournamentDetailPage() {
       loadData();
     }
   }, [tournamentId, loadData]);
+
+  // AI picks: one GET per decided, not-yet-completed match. Completed matches
+  // are skipped (the real result supersedes the pick) and undecided matchups
+  // are filtered up front so the 400 is never requested; any surprise error
+  // fails silent.
+  useEffect(() => {
+    const targets = matches.filter(
+      (m) =>
+        !m.is_bye &&
+        m.status !== 'completed' &&
+        m.team1 != null &&
+        m.team2 != null,
+    );
+    if (targets.length === 0) {
+      setPredictions({});
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      targets.map(async (m) => {
+        try {
+          return [m.id, await predictMatch(m.id)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      const map: Record<number, Prediction> = {};
+      for (const entry of entries) {
+        if (entry) map[entry[0]] = entry[1];
+      }
+      setPredictions(map);
+    });
+    return () => { cancelled = true; };
+  }, [matches]);
 
   // Load teams when registration is open
   useEffect(() => {
@@ -703,35 +741,53 @@ export default function TournamentDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {matches.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.bracket_round_label || `Round ${m.round}`}</td>
-                  <td>{m.position}</td>
-                  <td>{m.team1_name ?? 'TBD'}</td>
-                  <td>{m.team2_name ?? 'TBD'}</td>
-                  <td>
-                    {m.team1_score != null && m.team2_score != null
-                      ? `${m.team1_score} - ${m.team2_score}`
-                      : '—'}
-                  </td>
-                  <td>
-                    {m.status === 'completed' && !m.winner ? (
-                      <span className="badge bg-warning text-dark">Draw</span>
-                    ) : (
-                      m.winner_name ?? '—'
+              {matches.map((m) => {
+                const pred = predictions[m.id];
+                const predName =
+                  pred?.predicted_winner_id === m.team1
+                    ? m.team1_name
+                    : pred?.predicted_winner_id === m.team2
+                      ? m.team2_name
+                      : null;
+                return (
+                  <Fragment key={m.id}>
+                    <tr>
+                      <td>{m.bracket_round_label || `Round ${m.round}`}</td>
+                      <td>{m.position}</td>
+                      <td>{m.team1_name ?? 'TBD'}</td>
+                      <td>{m.team2_name ?? 'TBD'}</td>
+                      <td>
+                        {m.team1_score != null && m.team2_score != null
+                          ? `${m.team1_score} - ${m.team2_score}`
+                          : '—'}
+                      </td>
+                      <td>
+                        {m.status === 'completed' && !m.winner ? (
+                          <span className="badge bg-warning text-dark">Draw</span>
+                        ) : (
+                          m.winner_name ?? '—'
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            MATCH_STATUS_BADGES[m.status] ?? 'bg-secondary'
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      </td>
+                    </tr>
+                    {pred && predName && (
+                      <tr>
+                        <td colSpan={7} className="small text-muted py-1">
+                          AI pick: {predName} ({Math.round(pred.confidence * 100)}%)
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        MATCH_STATUS_BADGES[m.status] ?? 'bg-secondary'
-                      }`}
-                    >
-                      {m.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

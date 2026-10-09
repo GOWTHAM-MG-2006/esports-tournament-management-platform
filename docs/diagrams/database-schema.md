@@ -90,4 +90,13 @@ Table matches {
   team2_score varchar
   scheduled_at datetime
 }
+
+Table audit_logs {
+  id bigint [pk, increment]
+  actor_id bigint [ref: > users.id, note: 'null for anonymous actions (register, failed login)']
+  action varchar [not null, note: 'user.register, auth.login_failed, user.role_change, user.status_change, user.delete, tournament.delete, team.delete']
+  object_id varchar
+  detail text
+  created_at datetime [default: `now()`]
+}
 ```

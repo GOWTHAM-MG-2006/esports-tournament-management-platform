@@ -1,8 +1,7 @@
 import pytest
+from teams.models import Team
+from tournaments.models import Tournament
 from users.models import User
-from teams.models import Team, TeamMember
-from tournaments.models import Tournament, Registration
-from matches.models import Match
 
 
 @pytest.mark.django_db

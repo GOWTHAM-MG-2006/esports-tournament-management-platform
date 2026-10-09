@@ -45,3 +45,14 @@ class EmailOTP(models.Model):
 
     def __str__(self):
         return f'OTP for {self.user.email}'
+
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='audit_entries')
+    action = models.CharField(max_length=60)
+    object_id = models.CharField(max_length=60, blank=True, default='')
+    detail = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'audit_logs'

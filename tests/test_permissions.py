@@ -1,6 +1,5 @@
 import pytest
 from rest_framework.test import APIClient
-
 from tournaments.models import Tournament
 from users.models import User
 

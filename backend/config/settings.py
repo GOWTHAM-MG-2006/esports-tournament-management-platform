@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'teams',
     'tournaments',
     'matches',
+    'predictions',
 ]
 
 MIDDLEWARE = [
@@ -111,6 +112,14 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'app.core.exceptions.custom_exception_handler',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '100/minute',
+    },
 }
 
 # Email — console backend in dev, SMTP in prod via env (Phase 1 stub)
@@ -148,7 +157,9 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOWED_ORIGINS += [
     o.strip() for o in config('CORS_EXTRA_ORIGINS', default='').split(',') if o.strip()
 ]
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+CORS_ALLOW_ALL_ORIGINS = False  # explicit origins only, even in DEBUG
 
 # Logging — basic signup/login/error visibility (Review-II §9.6)
 LOGGING = {
