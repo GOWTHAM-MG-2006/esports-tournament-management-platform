@@ -1,0 +1,43 @@
+# Capstone full-stack deployment: Postgres + Django API + nginx SPA.
+# Secrets live in ./server.env on the host (NEVER committed). Create it from
+# backend/.env.example, then:  docker compose up -d --build
+# First boot:  docker compose run --rm backend python manage.py migrate
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: esports_db
+      POSTGRES_USER: esports
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in server.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esports -d esports_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    env_file:
+      - ./server.env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

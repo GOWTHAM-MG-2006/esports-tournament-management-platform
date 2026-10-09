@@ -5,10 +5,11 @@
 
 ## Live Deployment
 
-- Frontend (Vercel): https://esports-tournament-management-platf.vercel.app
-- Backend API (Render): https://esports-api-nr3v.onrender.com
-- Swagger docs: https://esports-api-nr3v.onrender.com/api/docs/
-- Health check: https://esports-api-nr3v.onrender.com/api/health/
+Single-box Docker deployment on AWS EC2 (`t3.small`, Asia Pacific/Mumbai):
+
+- App: http://52.66.246.97
+- Swagger docs: http://52.66.246.97/api/docs/
+- Health check: http://52.66.246.97/api/health/
 
 ## Tech Stack
 - Backend: Python 3.12, Django 5.1.15, Django REST Framework 3.15.2
@@ -196,26 +197,40 @@ ruff check backend/
 cd frontend && npm run lint
 ```
 
-## Deployment
+## Deployment (AWS, single box)
 
-Manual cloud steps (cannot be automated from here):
+Everything (Postgres, API, SPA) runs as Docker Compose services on one
+`t3.small` EC2 instance (Amazon Linux 2023, `ap-south-1`, free-tier eligible).
+The browser talks same-origin `/api`, so no CORS configuration is needed.
 
-1. **Database (Railway):** create a PostgreSQL service, copy the `DATABASE_URL`.
-2. **Backend (Render):** new Web Service from this repo —
-   build: `pip install -r requirements.txt && python backend/manage.py collectstatic --noinput`,
-   start: `python backend/manage.py migrate && gunicorn config.wsgi --chdir backend --bind 0.0.0.0:$PORT`
-    (or use the `Procfile`). Set env vars: `DATABASE_URL`, `SECRET_KEY`,
-    `DEBUG=False`, `ALLOWED_HOSTS=<render-host>`, `CORS_EXTRA_ORIGINS=<vercel-url>`,
-    `PYTHON_VERSION=3.12.4`, plus `EMAIL_BACKEND=smtp` with `EMAIL_HOST`,
-    `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
-    (Gmail App Password) and `DEFAULT_FROM_EMAIL` for real OTP delivery.
-3. **Frontend (Vercel):** import `frontend/`, set
-   `VITE_API_URL=https://<render-host>/api` (see `frontend/.env.production`).
-4. **CI deploy hooks:** add `RENDER_DEPLOY_HOOK` (vars) and `VERCEL_TOKEN`
-   (secrets) to GitHub so pushes to `main` redeploy.
+Files: `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`,
+`frontend/nginx.conf` (SPA + `/api/` proxy to the backend service).
 
-Verify: `https://<render-host>/api/health/` → `{"status": "ok", ...}`,
-`https://<render-host>/api/docs/` for Swagger.
+1. **Instance:** `t3.small`, Amazon Linux 2023 x86_64, security group
+   `capstone-stack` (22/80/443 inbound), 30 GB gp3, Docker + compose plugin.
+2. **Code:** `git clone <repo>` on the box (public repo, no credentials).
+3. **Secrets** (`server.env` next to `docker-compose.yml`, NEVER committed —
+   see `backend/.env.example` for the template):
+
+   | Variable | Value |
+   |---|---|
+   | `DB_PASSWORD` | strong Postgres password (also inside `DATABASE_URL`) |
+   | `SECRET_KEY` | long random string (`secrets.token_urlsafe(50)`) |
+   | `DEBUG` | `False` |
+   | `DATABASE_URL` | `postgres://esports:<DB_PASSWORD>@db:5432/esports_db` |
+   | `ALLOWED_HOSTS` | server public IP/DNS |
+   | `EMAIL_*` / `DEFAULT_FROM_EMAIL` | Gmail SMTP (App Password) for real OTP delivery |
+
+4. **Boot:** `docker compose up -d --build`, then
+   `docker compose run --rm backend python manage.py migrate`.
+5. **Redeploy:** `git pull && docker compose up -d --build && docker compose run --rm backend python manage.py migrate`.
+
+Verify: `http://<server-ip>/api/health/` → `{"status": "ok", ...}`,
+`http://<server-ip>/api/docs/` for Swagger.
+
+Known limits of this setup: plain HTTP (no TLS certificate yet), SSH open
+to the world (tighten to your IP when convenient), and Postgres backups are
+the Docker volume (snapshot it before anything drastic).
 
 ## Notes
 
