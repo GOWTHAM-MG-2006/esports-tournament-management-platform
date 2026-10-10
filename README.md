@@ -14,14 +14,14 @@ Single-box Docker deployment on AWS EC2 (`t3.small`, Asia Pacific/Mumbai):
 ## Tech Stack
 - Backend: Python 3.12, Django 5.1.15, Django REST Framework 3.15.2
 - Frontend: React 19, TypeScript, Vite, Bootstrap 5, React Router, Axios
-- Database: PostgreSQL 15 (Railway in production, Docker locally)
+- Database: PostgreSQL 15 (Docker Postgres container on the EC2 host, locally and in production)
 - Auth: JWT (djangorestframework-simplejwt, 30-min access / 7-day refresh, rotation + blacklist)
 - API Docs: drf-spectacular (Swagger UI)
 - Testing: pytest + pytest-django (134 tests), vitest + Testing Library (6 tests)
 - Lint: ruff (backend), oxlint (frontend)
-- CI/CD: GitHub Actions (backend + frontend + deploy jobs) → Render (backend) + Vercel (frontend)
+- CI/CD: GitHub Actions (backend + frontend test jobs) → EC2 deploy workflow (SSH into the instance, rebuild Docker images on every push to main)
 
-_Note: production pins `PYTHON_VERSION=3.12.4` on Render — Django 5.1's admin is
+_Note: production builds pin Python 3.12 (slim image) — Django 5.1's admin is
 incompatible with Python ≥ 3.13. Local development is verified on Python 3.14._
 
 ## Prerequisites

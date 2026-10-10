@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [Deploy] — 2026-10-10 (AWS consolidation)
+### Changed
+- Single deployment target: AWS EC2 (`t3.small`, `ap-south-1`) at
+  http://52.66.246.97. Removed all Vercel / Render / Railway references
+  from docs, configs, and deploy pipeline (`frontend/vercel.json`,
+  `Procfile`, `frontend/.env.production` deleted; README, architecture
+  diagram, settings comments, and Problem Statement updated)
+- CI/CD: `CI / deploy` job now SSH-deploys to EC2 (pull, rebuild, migrate,
+  health-check) on every push to `main` instead of Render/Vercel hooks
+
 ## [Deploy] — 2026-10-10
 ### Added
 - Live AWS deployment: single `t3.small` EC2 (`ap-south-1`) running

@@ -58,5 +58,4 @@ eliminating manual errors and giving all stakeholders real-time visibility.
 
 ## 10. Chosen Track
 Python — Django REST Framework (Backend) + React.js + Tailwind CSS (Frontend)
-PostgreSQL (Database) — hosted on Railway
-Backend hosted on Render, Frontend hosted on Vercel
+PostgreSQL (Database), Backend, and Frontend — all hosted on a single AWS EC2 instance (Docker Compose)

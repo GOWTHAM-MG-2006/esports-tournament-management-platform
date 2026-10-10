@@ -79,12 +79,14 @@ jobs:
     needs: [backend, frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Trigger Render deploy hook
-        if: vars.RENDER_DEPLOY_HOOK != ''
-        run: curl -fsS -X POST "${{ vars.RENDER_DEPLOY_HOOK }}"
-      - name: Deploy frontend to Vercel
+      - name: Deploy to EC2 (pull, rebuild, migrate, health-check)
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then echo "VERCEL_TOKEN not set; skipping Vercel deploy."; exit 0; fi
-          npx -y vercel@latest --prod --yes --token "$VERCEL_TOKEN" --cwd frontend
+          mkdir -p ~/.ssh
+          printf '%s' "$EC2_SSH_KEY" > ~/.ssh/capstone.pem
+          chmod 600 ~/.ssh/capstone.pem
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/capstone.pem "${EC2_USER}@${EC2_HOST}" \
+            'cd /home/ec2-user/capstone && git pull origin main && docker compose up -d --build && docker compose run --rm backend python manage.py migrate && curl -fsS http://localhost:8000/api/health/'
