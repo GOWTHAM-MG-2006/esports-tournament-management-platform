@@ -6,8 +6,11 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend/ ./
-# No VITE_API_URL: the app uses same-origin /api, proxied by nginx below.
-RUN npm run build
+# Force same-origin /api (proxied by nginx below). Without this, Vite's
+# production mode would bake in frontend/.env.production's placeholder
+# Render URL, and browsers would fail every API call with Network Error.
+ARG VITE_API_URL=/api
+RUN VITE_API_URL=$VITE_API_URL npm run build
 
 FROM nginx:alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
